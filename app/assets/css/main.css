@@ -18,6 +18,9 @@
   --member-2: #047857;
   --member-3: #7c3aed;
   --member-4: #be123c;
+  --map-ink: #09090b;
+  --map-text: #fafafa;
+  --map-accent: #fbbf24;
 }
 .dark {
   --ui-primary: #fbbf24;

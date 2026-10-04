@@ -19,6 +19,7 @@ const { data: status } = await useFetch<{ data: { mode: string } }>('/api/status
           <UBadge color="neutral" variant="outline" size="lg">일반 · 랭크</UBadge>
           <UBadge color="neutral" variant="outline" size="lg">듀오 · 스쿼드</UBadge>
         </div>
+        <BattlegroundGallery />
       </section>
       <UCard class="relative shadow-xl shadow-black/5" :ui="{ body: 'p-6 sm:p-8' }">
         <div class="mb-7 flex items-start justify-between gap-3">
