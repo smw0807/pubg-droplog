@@ -1,14 +1,15 @@
 import { z } from 'zod'
-import type { EventKind, EventRole, Report, ReportEvent, ReportMember, ReportWarning } from '../../shared/types'
-import { isoDateSchema, reportEventSchema, reportSchema } from '../../shared/schemas/report'
+import type { EventKind, EventRole, MapLocation, Report, ReportEvent, ReportMember, ReportWarning } from '../../shared/types'
+import { getMapExtent } from '../../shared/utils/map-coordinates'
+import { isoDateSchema, mapLocationSchema, reportEventSchema, reportSchema } from '../../shared/schemas/report'
 import { assertSupportedMatch, identifyTeam, type MatchSnapshot } from './match'
 
-export const ANALYSIS_VERSION = '1'
+export const ANALYSIS_VERSION = '2'
 export const MAX_REPORT_EVENTS = 20_000
 export const storedReportSchema = reportSchema.omit({ retry: true }).extend({ events: z.array(reportEventSchema), lastRetryAt: isoDateSchema.nullable() })
 export type StoredReport = z.infer<typeof storedReportSchema>
 
-const charSchema = z.object({ accountId: z.string(), name: z.string().optional(), teamId: z.number().int().optional() })
+const charSchema = z.object({ accountId: z.string(), name: z.string().optional(), teamId: z.number().int().optional(), location: z.unknown().optional() })
 type Character = z.infer<typeof charSchema>
 const requiredCharSchema = charSchema.refine(character => Boolean(character.accountId.trim() || character.name?.trim()), 'The required event character is missing.')
 const optionalChar = charSchema.nullish()
@@ -31,11 +32,19 @@ function addWarning(warnings: Map<string, ReportWarning>, code: string, message:
   else warnings.set(code, { code, message, count })
 }
 
-function role(character: Character | null | undefined, names: Map<string, string>, numbers: Map<string, number>): EventRole | null {
+function normalizeLocation(raw: unknown, mapName: string): MapLocation | null {
+  const parsed = mapLocationSchema.safeParse(raw)
+  if (!parsed.success) return null
+  const extent = getMapExtent(mapName)
+  if (extent !== null && (parsed.data.x > extent || parsed.data.y > extent)) return null
+  return parsed.data
+}
+
+function role(character: Character | null | undefined, names: Map<string, string>, numbers: Map<string, number>, mapName: string): EventRole | null {
   if (!character || (!character.accountId && !character.name)) return null
   return {
     accountId: character.accountId || null, name: names.get(character.accountId) ?? character.name ?? '확인 불가',
-    memberNo: numbers.get(character.accountId) ?? null,
+    memberNo: numbers.get(character.accountId) ?? null, location: normalizeLocation(character.location, mapName),
   }
 }
 
@@ -102,11 +111,11 @@ export function normalizeTelemetry(telemetry: unknown, match: MatchSnapshot, mem
       const value = parsed.data
       kind = 'kill'
       occurredAt = value._D
-      actor = role(value.killer, names, numbers)
-      target = role(value.victim, names, numbers)
-      knockMaker = role(value.dBNOMaker, names, numbers)
-      finisher = role(value.finisher, names, numbers)
-      assists = (value.assists_AccountId ?? []).filter(Boolean).map(accountId => ({ accountId, name: names.get(accountId) ?? '확인 불가', memberNo: numbers.get(accountId) ?? null }))
+      actor = role(value.killer, names, numbers, match.mapName)
+      target = role(value.victim, names, numbers, match.mapName)
+      knockMaker = role(value.dBNOMaker, names, numbers, match.mapName)
+      finisher = role(value.finisher, names, numbers, match.mapName)
+      assists = (value.assists_AccountId ?? []).filter(Boolean).map(accountId => ({ accountId, name: names.get(accountId) ?? '확인 불가', memberNo: numbers.get(accountId) ?? null, location: null }))
       // DamageInfo belongs to its role. An absent killer can have an empty
       // killerDamageInfo object while the finishing cause is environmental.
       // A known killer must never inherit the finisher's weapon or kill credit.
@@ -118,16 +127,16 @@ export function normalizeTelemetry(telemetry: unknown, match: MatchSnapshot, mem
       if (!parsed.success) { invalid(); continue }
       kind = 'revive'
       occurredAt = parsed.data._D
-      actor = role(parsed.data.reviver, names, numbers)
-      target = role(parsed.data.victim, names, numbers)
+      actor = role(parsed.data.reviver, names, numbers, match.mapName)
+      target = role(parsed.data.victim, names, numbers, match.mapName)
     } else if (rawType === 'LogPlayerTakeDamage') {
       const parsed = damageSchema.safeParse(raw)
       if (!parsed.success) { invalid(); continue }
       if (parsed.data.damage === 0) continue
       kind = 'damage'
       occurredAt = parsed.data._D
-      actor = role(parsed.data.attacker, names, numbers)
-      target = role(parsed.data.victim, names, numbers)
+      actor = role(parsed.data.attacker, names, numbers, match.mapName)
+      target = role(parsed.data.victim, names, numbers, match.mapName)
       weaponCode = parsed.data.damageCauserName || null
       damageType = parsed.data.damageTypeCategory
       damage = parsed.data.damage
@@ -136,8 +145,8 @@ export function normalizeTelemetry(telemetry: unknown, match: MatchSnapshot, mem
       if (!parsed.success) { invalid(); continue }
       kind = 'knock'
       occurredAt = parsed.data._D
-      actor = role(parsed.data.attacker, names, numbers)
-      target = role(parsed.data.victim, names, numbers)
+      actor = role(parsed.data.attacker, names, numbers, match.mapName)
+      target = role(parsed.data.victim, names, numbers, match.mapName)
       weaponCode = parsed.data.damageCauserName || null
       damageType = parsed.data.damageTypeCategory
     }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createReviewService } from '../../server/services/review'
 import type { Provider } from '../../server/services/provider'
-import { analyzeReport } from '../../server/domain/report'
+import { ANALYSIS_VERSION, analyzeReport } from '../../server/domain/report'
 import { demoPlayer, demoMatches, largeDemoMatches, demoTelemetry } from '../../server/fixtures/demo'
 import type { MatchSnapshot } from '../../server/domain/match'
 import { ApiError } from '../../server/utils/errors'
@@ -38,6 +38,143 @@ function fakeProvider(source: 'demo' | 'live' = 'live', records: MatchSnapshot[]
 }
 
 afterEach(() => vi.useRealTimers())
+
+describe('explicit report analysis upgrades', () => {
+  async function seedLegacy(repo: MemoryRepository, source: 'demo' | 'live' = 'live') {
+    const match = { ...structuredClone(demoMatches[0]!), source }
+    const old = analyzeReport({ match, playerId, telemetry: demoTelemetry(matchId), reportId: 'legacy-report', generatedAt: '2026-10-04T12:00:00.000Z' })
+    old.analysisVersion = '1'
+    for (const event of old.events) {
+      for (const role of [event.actor, event.target, event.knockMaker, event.finisher, ...event.assists]) {
+        if (role) delete role.location
+      }
+    }
+    await repo.saveMatch(match)
+    await repo.saveReport(old)
+    return old
+  }
+
+  it('creates a new current-version report while preserving every field of the old report', async () => {
+    const repo = new MemoryRepository()
+    const old = await seedLegacy(repo)
+    const provider = fakeProvider()
+    const service = createReviewService(repo, provider)
+    const before = await service.report(old.id)
+    const upgraded = await service.upgrade(old.id, 'upgrade-client')
+    expect(ANALYSIS_VERSION).toBe('2')
+    expect(upgraded.data).toMatchObject({ reused: false, quality: 'ready' })
+    expect(upgraded.data.reportId).toMatch(/^[a-f0-9-]{36}$/)
+    expect(upgraded.data.reportId).not.toBe(old.id)
+    expect(await repo.getReport(old.id)).toEqual(old)
+    expect(await service.report(old.id)).toEqual(before)
+    expect((await service.report(upgraded.data.reportId)).data).toMatchObject({ analysisVersion: ANALYSIS_VERSION, revision: 1, matchId: old.matchId, rosterId: old.rosterId, source: old.source })
+    expect(repo.reports.size).toBe(2)
+    expect(provider.getTelemetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('reuses an existing current-version report requested by another member of the same team', async () => {
+    const repo = new MemoryRepository()
+    const old = await seedLegacy(repo)
+    const provider = fakeProvider()
+    const service = createReviewService(repo, provider)
+    const teammate = old.members.find(member => member.accountId !== playerId)!
+    const current = await service.create({ ...input, playerId: teammate.accountId }, 'teammate')
+    vi.mocked(provider.getMatch).mockClear()
+    vi.mocked(provider.getTelemetry).mockClear()
+    await expect(service.upgrade(old.id, 'upgrade-client')).resolves.toMatchObject({ data: { reportId: current.data.reportId, reused: true } })
+    expect(provider.getMatch).not.toHaveBeenCalled()
+    expect(provider.getTelemetry).not.toHaveBeenCalled()
+    expect(await repo.getReport(old.id)).toEqual(old)
+    expect(repo.reports.size).toBe(2)
+  })
+
+  it('coalesces simultaneous upgrade requests into one new analysis without replacing the legacy row', async () => {
+    const repo = new MemoryRepository()
+    const old = await seedLegacy(repo)
+    const provider = fakeProvider()
+    const analyze = vi.fn(analyzeReport)
+    const service = createReviewService(repo, provider, { analyze })
+    const results = await Promise.all(Array.from({ length: 10 }, (_, index) => service.upgrade(old.id, `upgrade-${index}`)))
+    expect(new Set(results.map(result => result.data.reportId)).size).toBe(1)
+    expect(results.filter(result => !result.data.reused)).toHaveLength(1)
+    expect(provider.getTelemetry).toHaveBeenCalledTimes(1)
+    expect(analyze).toHaveBeenCalledTimes(1)
+    expect(repo.reports.size).toBe(2)
+    expect(await repo.getReport(old.id)).toEqual(old)
+  })
+
+  it('returns the current report itself without another upstream request', async () => {
+    const repo = new MemoryRepository()
+    const provider = fakeProvider()
+    const service = createReviewService(repo, provider)
+    const current = await service.create(input, 'create')
+    vi.mocked(provider.getMatch).mockClear()
+    vi.mocked(provider.getTelemetry).mockClear()
+    await expect(service.upgrade(current.data.reportId, 'upgrade')).resolves.toMatchObject({ data: { reportId: current.data.reportId, reused: true } })
+    expect(provider.getMatch).not.toHaveBeenCalled()
+    expect(provider.getTelemetry).not.toHaveBeenCalled()
+    expect(repo.reports.size).toBe(1)
+  })
+
+  it('rate-limits the sixth upgrade from one client even when every call reuses a current report', async () => {
+    const provider = fakeProvider()
+    const service = createReviewService(new MemoryRepository(), provider)
+    const current = await service.create(input, 'separate-creator')
+    vi.mocked(provider.getMatch).mockClear()
+    vi.mocked(provider.getTelemetry).mockClear()
+    for (let index = 0; index < 5; index++) {
+      await expect(service.upgrade(current.data.reportId, 'same-upgrade-client')).resolves.toMatchObject({ data: { reportId: current.data.reportId, reused: true } })
+    }
+    await expect(service.upgrade(current.data.reportId, 'same-upgrade-client')).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429, retryAfterSeconds: 60 })
+    expect(provider.getMatch).not.toHaveBeenCalled()
+    expect(provider.getTelemetry).not.toHaveBeenCalled()
+  })
+
+  it('charges a newly created upgrade once so four reuses still fit the same client write allowance', async () => {
+    const repo = new MemoryRepository()
+    const old = await seedLegacy(repo)
+    const provider = fakeProvider()
+    const service = createReviewService(repo, provider)
+    const created = await service.upgrade(old.id, 'same-upgrade-client')
+    expect(created.data.reused).toBe(false)
+    for (let index = 0; index < 4; index++) {
+      await expect(service.upgrade(old.id, 'same-upgrade-client')).resolves.toMatchObject({ data: { reportId: created.data.reportId, reused: true } })
+    }
+    await expect(service.upgrade(old.id, 'same-upgrade-client')).rejects.toMatchObject({ code: 'RATE_LIMITED', status: 429, retryAfterSeconds: 60 })
+    expect(provider.getTelemetry).toHaveBeenCalledTimes(1)
+    expect(await repo.getReport(old.id)).toEqual(old)
+    expect(repo.reports.size).toBe(2)
+  })
+
+  it.each(['demo', 'live'] as const)('refuses a missing %s upgrade when the active provider has another source', async source => {
+    const repo = new MemoryRepository()
+    const old = await seedLegacy(repo, source)
+    const provider = fakeProvider(source === 'live' ? 'demo' : 'live')
+    const service = createReviewService(repo, provider)
+    const otherSource = await service.create(input, 'other-source-create')
+    vi.mocked(provider.getMatch).mockClear()
+    vi.mocked(provider.getTelemetry).mockClear()
+    await expect(service.upgrade(old.id, 'upgrade')).rejects.toMatchObject({ code: 'SERVER_MISCONFIGURED', status: 503 })
+    expect(otherSource.data.reportId).not.toBe(old.id)
+    expect(provider.getMatch).not.toHaveBeenCalled()
+    expect(provider.getTelemetry).not.toHaveBeenCalled()
+    expect(await repo.getReport(old.id)).toEqual(old)
+    expect(repo.reports.size).toBe(2)
+  })
+
+  it.each(['demo', 'live'] as const)('reuses a persisted %s upgrade even after the active server source changes', async source => {
+    const repo = new MemoryRepository()
+    const old = await seedLegacy(repo, source)
+    const creator = createReviewService(repo, fakeProvider(source))
+    const current = await creator.create(input, 'create')
+    const inactiveProvider = fakeProvider(source === 'live' ? 'demo' : 'live')
+    const service = createReviewService(repo, inactiveProvider)
+    await expect(service.upgrade(old.id, 'upgrade')).resolves.toMatchObject({ data: { reportId: current.data.reportId, reused: true }, meta: { source } })
+    expect(inactiveProvider.getMatch).not.toHaveBeenCalled()
+    expect(inactiveProvider.getTelemetry).not.toHaveBeenCalled()
+    expect(await repo.getReport(old.id)).toEqual(old)
+  })
+})
 
 describe('report creation and bounded single-process work', () => {
   it('coalesces 10 different clients on one team into one analysis and one persisted report', async () => {

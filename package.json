@@ -19,6 +19,7 @@
     "test:smoke": "node --env-file-if-exists=.env --import tsx scripts/production-smoke.ts",
     "benchmark": "node --import tsx scripts/benchmark.ts",
     "validate:live": "node --env-file-if-exists=.env --import tsx scripts/live-check.ts",
+    "validate:map": "node --env-file-if-exists=.env --import tsx scripts/validate-event-map.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts"
   },

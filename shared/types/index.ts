@@ -11,6 +11,7 @@ export type MatchFilters = z.infer<typeof schemas.matchFiltersSchema>
 export type Report = z.infer<typeof schemas.reportSchema>
 export type ReportMember = z.infer<typeof schemas.reportMemberSchema>
 export type ReportEvent = z.infer<typeof schemas.reportEventSchema>
+export type MapLocation = z.infer<typeof schemas.mapLocationSchema>
 export type EventRole = z.infer<typeof schemas.eventRoleSchema>
 export type ReportSummary = z.infer<typeof schemas.reportSummarySchema>
 export type ReportWarning = z.infer<typeof schemas.warningSchema>

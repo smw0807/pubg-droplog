@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ApiResponse, EventsData, Report, ReportEvent } from '~~/shared/types'
+import type { ApiResponse, CreateReportData, EventsData, Report, ReportEvent } from '~~/shared/types'
+import EventMap from '~/components/EventMap.vue'
 definePageMeta({ key: route => route.path })
 const route = useRoute()
 const display = useDisplay()
@@ -13,12 +14,19 @@ const memberNo = ref('all')
 const kinds = computed(() => selected.value === 'major' ? 'knock,revive,kill' : selected.value === 'all' ? 'knock,revive,kill,damage' : selected.value)
 const { data: initialEvents, error: initialEventsError } = await useFetch<ApiResponse<EventsData>>(`${endpoint}/events`, { retry: 0, query: { kinds: kinds.value, limit: 50 }, immediate: !!report.value, watch: false })
 const events = ref<ReportEvent[]>(initialEvents.value?.data.events ?? [])
+const selectedEventId = ref<string | null>(null)
+const eventMap = ref<InstanceType<typeof EventMap>>()
+const mapRegion = ref<HTMLElement>()
+const timelineRegion = ref<HTMLElement>()
 const eventsTotal = ref(initialEvents.value?.data.total ?? 0)
 const nextCursor = ref<string | null>(initialEvents.value?.data.nextCursor ?? null)
 const eventError = ref(initialEventsError.value ? parseError(initialEventsError.value) : null)
 const loadingEvents = ref(false)
 const retrying = ref(false)
 const reloading = ref(false)
+const upgrading = ref(false)
+const upgradeError = ref<ReturnType<typeof parseError> | null>(null)
+const upgradeGate = useRetryGate()
 const revisionNotice = ref(false)
 const retryGate = useRetryGate()
 const eventGate = useRetryGate()
@@ -53,7 +61,7 @@ async function loadEvents(reset: boolean, recovering = false) {
   const current = ++requestVersion
   loadingEvents.value = true
   eventError.value = null
-  if (reset) { events.value = []; nextCursor.value = null }
+  if (reset) { events.value = []; nextCursor.value = null; selectedEventId.value = null }
   try {
     const response = await $fetch<ApiResponse<EventsData>>(`${endpoint}/events`, { retry: 0, query: { kinds: kinds.value, memberNo: memberNo.value === 'all' ? undefined : memberNo.value, limit: 50, cursor: reset ? undefined : nextCursor.value ?? undefined }, signal: controller.signal })
     if (current !== requestVersion) return
@@ -90,6 +98,33 @@ async function retryReport() {
   } catch (cause) { reportError.value = parseError(cause); retryGate.block(reportError.value.retryAfterSeconds) }
   finally { retrying.value = false }
 }
+async function upgradeReport() {
+  if (upgrading.value || upgradeGate.seconds.value) return
+  upgrading.value = true
+  upgradeError.value = null
+  try {
+    const result = await $fetch<ApiResponse<CreateReportData>>(`${endpoint}/upgrade`, { retry: 0, method: 'POST' })
+    await navigateTo(`/reports/${result.data.reportId}`)
+  } catch (cause) {
+    upgradeError.value = parseError(cause)
+    upgradeGate.block(upgradeError.value.retryAfterSeconds)
+  } finally { upgrading.value = false }
+}
+async function showOnMap(id: string) {
+  selectedEventId.value = id
+  await nextTick()
+  eventMap.value?.revealSelected()
+  const target = mapRegion.value?.querySelector<HTMLElement>('[role="region"]') ?? mapRegion.value
+  target?.focus({ preventScroll: true })
+  target?.scrollIntoView({ block: 'center', behavior: 'auto' })
+}
+async function showOnTimeline(id: string) {
+  selectedEventId.value = id
+  await nextTick()
+  const target = [...(timelineRegion.value?.querySelectorAll<HTMLButtonElement>('[data-event-id]') ?? [])].find(row => row.dataset.eventId === id)
+  target?.focus({ preventScroll: true })
+  target?.scrollIntoView({ block: 'center', behavior: 'auto' })
+}
 onBeforeUnmount(() => controller?.abort())
 </script>
 
@@ -109,12 +144,19 @@ onBeforeUnmount(() => controller?.abort())
         <p class="mt-4 text-xs leading-6 text-muted">주요 이벤트는 기절·소생·처치와 사망입니다. 팀원 선택은 어시스트를 포함한 모든 역할을 확인합니다. 첫 사망을 최종 탈락으로 해석하지 않습니다.</p>
         <UAlert v-if="revisionNotice" class="mt-5" color="info" variant="soft" title="리포트가 갱신되어 첫 이벤트부터 다시 불러왔어요." />
         <UAlert v-if="eventError" class="mt-5" color="error" variant="soft" :title="eventError.message" :description="eventError.requestId ? `요청 ID: ${eventError.requestId}` : undefined" role="alert"><template #actions><UButton color="error" variant="outline" :disabled="!!eventGate.seconds.value" @click="loadEvents(!events.length)">{{ eventGate.seconds.value ? `${eventGate.seconds.value}초 후 재시도` : '다시 시도' }}</UButton></template></UAlert>
-        <div class="mt-6 surface p-5 sm:p-8">
-          <p class="mb-6 text-xs text-muted" aria-live="polite">{{ events.length }}/{{ eventsTotal }}개 이벤트 표시</p>
-          <div v-if="loadingEvents && !events.length" class="space-y-6" role="status" aria-label="이벤트를 불러오는 중"><USkeleton v-for="i in 3" :key="i" class="h-16 w-full" /></div>
-          <TeamTimeline v-else-if="events.length" :events="events" />
-          <div v-else-if="!eventError" class="py-8 text-center"><UIcon name="i-lucide-list-filter" class="size-8 text-muted" /><h3 class="mt-4 font-medium">현재 조건에 맞는 기록이 없어요</h3><p class="mt-2 text-sm text-muted">{{ report.quality === 'partial' ? '일부 상세 기록이 누락되었을 수 있어요.' : '이벤트 유형이나 팀원을 바꿔보세요.' }}</p><UButton color="neutral" variant="link" class="mt-3" @click="changeFilters({ selected: 'major', memberNo: 'all' })">필터 초기화</UButton></div>
-          <div v-if="nextCursor" class="mt-6 border-t border-default pt-6 text-center"><UButton color="neutral" variant="outline" size="lg" :loading="loadingEvents" :disabled="!!eventGate.seconds.value" @click="loadEvents(false)">이벤트 더 보기</UButton></div>
+        <UAlert v-if="report.analysisVersion === '1'" class="mt-5" color="info" variant="soft" title="이전에 만든 리포트에는 위치가 저장되어 있지 않아요." description="새 분석으로 위치 기록을 확인할 수 있어요. 기존 리포트와 공유 링크는 유지됩니다.">
+          <template #actions><UButton color="info" variant="outline" :loading="upgrading" :disabled="!!upgradeGate.seconds.value" @click="upgradeReport">{{ upgradeGate.seconds.value ? `${upgradeGate.seconds.value}초 후 다시 시도` : '위치 포함 리포트 열기' }}</UButton></template>
+        </UAlert>
+        <UAlert v-if="upgradeError" class="mt-5" color="error" variant="soft" :title="upgradeError.message" :description="upgradeError.requestId ? `요청 ID: ${upgradeError.requestId}` : undefined" role="alert" />
+        <div class="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,.95fr)_minmax(0,1.05fr)]">
+          <div ref="mapRegion" tabindex="-1" class="min-w-0 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:rounded-xl"><EventMap ref="eventMap" :events="events" :map-name="report.summary.mapName" :selected-event-id="selectedEventId" :total="eventsTotal" :loading="loadingEvents" @select="selectedEventId = $event" @show-timeline="showOnTimeline" /></div>
+          <div ref="timelineRegion" class="surface min-w-0 p-5 sm:p-6">
+            <p class="mb-6 text-xs text-muted" aria-live="polite">{{ events.length }}/{{ eventsTotal }}개 이벤트 표시</p>
+            <div v-if="loadingEvents && !events.length" class="space-y-6" role="status" aria-label="이벤트를 불러오는 중"><USkeleton v-for="i in 3" :key="i" class="h-16 w-full" /></div>
+            <TeamTimeline v-else-if="events.length" :events="events" :selected-event-id="selectedEventId" @select="selectedEventId = $event" @show-map="showOnMap" />
+            <div v-else-if="!eventError" class="py-8 text-center"><UIcon name="i-lucide-list-filter" class="size-8 text-muted" /><h3 class="mt-4 font-medium">현재 조건에 맞는 기록이 없어요</h3><p class="mt-2 text-sm text-muted">{{ report.quality === 'partial' ? '일부 상세 기록이 누락되었을 수 있어요.' : '이벤트 유형이나 팀원을 바꿔보세요.' }}</p><UButton color="neutral" variant="link" class="mt-3" @click="changeFilters({ selected: 'major', memberNo: 'all' })">필터 초기화</UButton></div>
+            <div v-if="nextCursor" class="mt-6 border-t border-default pt-6 text-center"><UButton color="neutral" variant="outline" size="lg" :loading="loadingEvents" :disabled="!!eventGate.seconds.value" @click="loadEvents(false)">이벤트 더 보기</UButton></div>
+          </div>
         </div>
       </section>
       <aside class="mt-8 text-xs leading-7 text-muted" aria-label="데이터 출처"><p>데이터 출처: {{ report.source === 'demo' ? '합성 샘플 데이터' : 'PUBG 공식 Match API · Telemetry' }} · 성적은 공식 경기 통계, 사건은 텔레메트리를 사용합니다.</p><p>분석 {{ report.analysisVersion }} · 분류 {{ report.summary.classificationVersion }} · 리비전 {{ report.revision }} · 생성 {{ display.date(report.generatedAt) }} KST</p><p>확인할 수 없는 값은 —로 표시합니다. 준비 완료 상태도 원본 API의 모든 사건이 완전함을 보장하지 않습니다.</p></aside>

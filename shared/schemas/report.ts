@@ -21,7 +21,13 @@ export const reportMemberSchema = z.object({
   participantId: z.string(), accountId: z.string(), name: z.string(), memberNo: z.number().int().min(1).max(4),
   kills: metric, damageDealt: metric, revives: metric, timeSurvived: metric, damageShare: metric,
 })
-export const eventRoleSchema = z.object({ accountId: z.string().nullable(), name: z.string(), memberNo: z.number().int().min(1).max(4).nullable() })
+/** XY is an absolute centimeter position. Negative altitude can be legitimate. */
+export const mapLocationSchema = z.object({ x: z.number().finite().nonnegative(), y: z.number().finite().nonnegative(), z: z.number().finite().optional() })
+export const eventRoleSchema = z.object({
+  accountId: z.string().nullable(), name: z.string(), memberNo: z.number().int().min(1).max(4).nullable(),
+  // Version 1 persisted events did not contain location; keep them readable.
+  location: mapLocationSchema.nullable().optional(),
+})
 export const reportEventSchema = z.object({
   id: z.string(), sourceIndex: z.number().int().nonnegative(), occurredAt: isoDateSchema, elapsedMs: z.number().int().nonnegative().nullable(),
   kind: eventKindSchema, actor: eventRoleSchema.nullable(), target: eventRoleSchema.nullable(), knockMaker: eventRoleSchema.nullable(),

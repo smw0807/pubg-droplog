@@ -84,23 +84,25 @@ export function demoTelemetry(matchId: string): unknown[] {
   const match = demoMatches.find(candidate => candidate.matchId === matchId)
   const start = Date.parse(match?.createdAt ?? new Date(baseTime).toISOString())
   const at = (seconds: number) => new Date(start + seconds * 1_000).toISOString()
-  const character = (index: number) => ({ accountId: `account.demo-${index}`, name: memberNames[index - 1] ?? `Sample${index}`, teamId: 11 })
-  const enemy = { accountId: 'account.opponent-1', name: 'StoneFalcon', teamId: 22 }
-  const second = (match?.rosters[0]?.participantIds.length ?? 4) > 1 ? character(2) : character(1)
+  const location = (x: number, y: number) => ({ x, y, z: 1_800 })
+  const character = (index: number, x = 296_000, y = 320_000) => ({ accountId: `account.demo-${index}`, name: memberNames[index - 1] ?? `Sample${index}`, teamId: 11, location: location(x, y) })
+  const enemy = (x = 304_000, y = 329_000) => ({ accountId: 'account.opponent-1', name: 'StoneFalcon', teamId: 22, location: location(x, y) })
+  const secondIndex = (match?.rosters[0]?.participantIds.length ?? 4) > 1 ? 2 : 1
+  const second = (x: number, y: number) => character(secondIndex, x, y)
   const events: unknown[] = [
     { _T: 'LogMatchStart', _D: at(0), mapName: 'Baltic_Main' },
-    { _T: 'LogPlayerTakeDamage', _D: at(215), attacker: character(1), victim: enemy, damage: 32.5, damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' },
-    { _T: 'LogPlayerMakeGroggy', _D: at(221), attacker: character(1), victim: enemy, damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' },
-    { _T: 'LogPlayerKillV2', _D: at(227), killer: character(1), victim: enemy, dBNOMaker: character(1), finisher: second,
-      killerDamageInfo: { damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' }, finishDamageInfo: { damageCauserName: 'WeapAK47_C', damageTypeCategory: 'Damage_Gun' }, assists_AccountId: [second.accountId] },
-    { _T: 'LogPlayerMakeGroggy', _D: at(438), attacker: enemy, victim: second, damageCauserName: 'WeapBerylM762_C', damageTypeCategory: 'Damage_Gun' },
-    { _T: 'LogPlayerRevive', _D: at(451), reviver: character(1), victim: second },
-    { _T: 'LogPlayerKillV2', _D: at(815), killer: null, finisher: null, dBNOMaker: null, victim: second,
+    { _T: 'LogPlayerTakeDamage', _D: at(215), attacker: character(1), victim: enemy(), damage: 32.5, damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' },
+    { _T: 'LogPlayerMakeGroggy', _D: at(221), attacker: character(1), victim: enemy(), damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' },
+    { _T: 'LogPlayerKillV2', _D: at(227), killer: character(1), victim: enemy(305_000, 330_000), dBNOMaker: character(1), finisher: second(303_000, 328_000),
+      killerDamageInfo: { damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' }, finishDamageInfo: { damageCauserName: 'WeapAK47_C', damageTypeCategory: 'Damage_Gun' }, assists_AccountId: [`account.demo-${secondIndex}`] },
+    { _T: 'LogPlayerMakeGroggy', _D: at(438), attacker: enemy(422_000, 448_000), victim: second(428_000, 451_000), damageCauserName: 'WeapBerylM762_C', damageTypeCategory: 'Damage_Gun' },
+    { _T: 'LogPlayerRevive', _D: at(451), reviver: character(1, 428_800, 451_500), victim: second(429_000, 451_700) },
+    { _T: 'LogPlayerKillV2', _D: at(815), killer: null, finisher: null, dBNOMaker: null, victim: second(546_000, 587_000),
       finishDamageInfo: { damageCauserName: 'BP_BlueZoneController_C', damageTypeCategory: 'Damage_BlueZone' }, assists_AccountId: [] },
-    { _T: 'LogPlayerRedeploy', _D: at(930), character: second },
+    { _T: 'LogPlayerRedeploy', _D: at(930), character: second(566_000, 572_000) },
     { _T: 'FutureUnrelatedEvent', _D: at(950), arbitrary: 'additional fields are allowed' },
   ]
-  for (let index = 0; index < 110; index++) events.push({ _T: 'LogPlayerTakeDamage', _D: at(1_000 + Math.floor(index / 2)), attacker: character(1), victim: enemy, damage: 3.2, damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' })
+  for (let index = 0; index < 110; index++) events.push({ _T: 'LogPlayerTakeDamage', _D: at(1_000 + Math.floor(index / 2)), attacker: character(1, 587_000 + index * 180, 602_000 + index * 80), victim: enemy(595_000 + index * 180, 611_000 + index * 80), damage: 3.2, damageCauserName: 'WeapM416_C', damageTypeCategory: 'Damage_Gun' })
   return events
 }
 

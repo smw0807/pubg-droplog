@@ -72,6 +72,51 @@ describe('PostgreSQL repository with real migrations', () => {
     } finally { await reopened.close() }
   })
 
+  it('reads legacy v1 JSONB events with omitted locations alongside a separate v2 document', async () => {
+    const match = makeMatch()
+    await repo.saveMatch(match)
+    const legacy = makeReport(match)
+    legacy.analysisVersion = '1'
+    legacy.events = [{
+      id: 'legacy-event', sourceIndex: 1, occurredAt: match.createdAt, elapsedMs: 0, kind: 'knock',
+      actor: { accountId: demoPlayer.accountId, name: demoPlayer.displayName, memberNo: 1 },
+      target: { accountId: 'account.synthetic-opponent', name: 'SyntheticOpponent', memberNo: null },
+      knockMaker: null, finisher: null, assists: [], weaponCode: 'WeapM416_C', damage: null, cause: 'combat', warnings: [],
+    }]
+    await repo.saveReport(legacy)
+    const current = makeReport(match)
+    current.analysisVersion = '2'
+    current.events = structuredClone(legacy.events)
+    current.events[0]!.actor!.location = { x: 0, y: 409600, z: 0 }
+    current.events[0]!.target!.location = { x: 819200, y: 0 }
+    await repo.saveReport(current)
+    const reopened = createPostgresRepository(configuredUrl)
+    try {
+      const storedLegacy = await reopened.repository.getReport(legacy.id)
+      expect(storedLegacy).toEqual(legacy)
+      expect(storedLegacy?.events[0]?.actor).not.toHaveProperty('location')
+      expect(await reopened.repository.findReport({ ...legacy, analysisVersion: '1' })).toEqual(legacy)
+      expect(await reopened.repository.findReport({ ...current, analysisVersion: '2' })).toEqual(current)
+      expect(current.id).not.toBe(legacy.id)
+    } finally { await reopened.close() }
+  })
+
+  it('preserves zero and nullable event coordinates through JSONB without changing roles', async () => {
+    const match = makeMatch()
+    await repo.saveMatch(match)
+    const report = makeReport(match)
+    report.events = [{
+      id: 'coordinate-event', sourceIndex: 2, occurredAt: match.createdAt, elapsedMs: 0, kind: 'kill',
+      actor: { accountId: demoPlayer.accountId, name: demoPlayer.displayName, memberNo: 1, location: { x: 0, y: 0, z: 0 } },
+      target: { accountId: 'account.synthetic-opponent', name: 'SyntheticOpponent', memberNo: null, location: { x: 819200, y: 819200 } },
+      knockMaker: null, finisher: { accountId: 'account.demo-2', name: 'AerialFox', memberNo: 2, location: null },
+      assists: [{ accountId: 'account.demo-3', name: 'RiverMint', memberNo: 3 }],
+      weaponCode: 'WeapM416_C', damage: null, cause: 'combat', warnings: [],
+    }]
+    await repo.saveReport(report)
+    expect(await repo.getReport(report.id)).toEqual(report)
+  })
+
   it('converges 10 concurrent inserts with distinct IDs onto one analysis key', async () => {
     const match = makeMatch()
     await repo.saveMatch(match)

@@ -143,6 +143,29 @@ export function createReviewService(repo: Repository, provider: Provider, option
     for (const warning of report.warnings) recordReason(warning.code)
     return report
   }
+  async function createReport(input: { platform: Platform; matchId: string; playerId: string }, deadline = now() + 30000): Promise<ApiResponse<CreateReportData>> {
+    recordSource(provider.source)
+    const loaded = await withTimeout(signal => getMatch(input.platform, input.matchId, signal), Math.max(1, Math.min(10000, deadline - now())))
+    assertSupportedMatch(loaded.match)
+    const team = identifyTeam(loaded.match, input.playerId)
+    const key = { source: provider.source, platform: input.platform, matchId: input.matchId, rosterId: team.roster.rosterId, analysisVersion: ANALYSIS_VERSION }
+    const existing = await repo.findReport(key)
+    if (existing) recordCacheHit()
+    let reused = Boolean(existing)
+    const budgetMs = Math.max(1, deadline - now())
+    const report = existing ?? await runAnalysis(JSON.stringify(key), async signal => {
+      // Recheck durable identity after joining the bounded analysis slot.
+      const completed = await repo.findReport(key)
+      if (completed) { recordCacheHit(); reused = true; return completed }
+      const result = await buildReport(loaded.match, input.playerId, randomUUID(), signal, loaded.telemetryUrl, 1, Math.max(1, deadline - now()))
+      const saved = await repo.saveReport(result)
+      if (saved.id !== result.id) { recordCacheHit(); reused = true }
+      return saved
+    }, budgetMs, () => { reused = true })
+    recordAnalysisVersion(report.analysisVersion)
+    for (const warning of report.warnings) recordReason(warning.code)
+    return { data: { reportId: report.id, quality: report.quality, reused }, meta: { source: report.source, quality: report.quality, revision: report.revision } }
+  }
   return {
     async search(platform: Platform, name: string) {
       recordSource(provider.source)
@@ -195,34 +218,25 @@ export function createReviewService(repo: Repository, provider: Provider, option
         failed: failedMatchIds.length, failedMatchIds, complete: end === snapshot.matchIds.length && failedMatchIds.length === 0 && unclassified === 0, snapshotId: snapshot.id } }
     },
     async create(input: { platform: Platform; matchId: string; playerId: string }, clientId: string): Promise<ApiResponse<CreateReportData>> {
-      recordSource(provider.source)
-      const deadline = now() + 30000
       writes.consume(clientId)
-      const loaded = await withTimeout(signal => getMatch(input.platform, input.matchId, signal), 10000)
-      assertSupportedMatch(loaded.match)
-      const team = identifyTeam(loaded.match, input.playerId)
-      const key = { source: provider.source, platform: input.platform, matchId: input.matchId, rosterId: team.roster.rosterId, analysisVersion: ANALYSIS_VERSION }
-      const existing = await repo.findReport(key)
-      if (existing) recordCacheHit()
-      let reused = Boolean(existing)
-      const budgetMs = Math.max(1, deadline - now())
-      const report = existing ?? await runAnalysis(JSON.stringify(key), async signal => {
-        // A previously started lookup may finish just after the shared task was
-        // removed. Recheck durable identity before starting new analysis work.
-        const completed = await repo.findReport(key)
-        if (completed) { recordCacheHit(); reused = true; return completed }
-        const result = await buildReport(loaded.match, input.playerId, randomUUID(), signal, loaded.telemetryUrl, 1, Math.max(1, deadline - now()))
-        const saved = await repo.saveReport(result)
-        if (saved.id !== result.id) { recordCacheHit(); reused = true }
-        return saved
-      }, budgetMs, () => { reused = true })
-      recordAnalysisVersion(report.analysisVersion)
-      for (const warning of report.warnings) recordReason(warning.code)
-      return { data: { reportId: report.id, quality: report.quality, reused }, meta: { source: report.source, quality: report.quality, revision: report.revision } }
+      return createReport(input)
     },
     async report(id: string): Promise<ApiResponse<Report>> {
       const report = await readStored(id)
       return { data: toPublicReport(report, now()), meta: { source: report.source, quality: report.quality, revision: report.revision } }
+    },
+    async upgrade(id: string, clientId: string): Promise<ApiResponse<CreateReportData>> {
+      const deadline = now() + 30000
+      writes.consume(clientId)
+      const old = await readStored(id)
+      // Keep shared links immutable. A newer analysis has its own durable key
+      // and ID; looking it up must also work after the server mode changes.
+      const latest = old.analysisVersion === ANALYSIS_VERSION ? old : await repo.findReport({
+        source: old.source, platform: old.platform, matchId: old.matchId, rosterId: old.rosterId, analysisVersion: ANALYSIS_VERSION,
+      })
+      if (latest) return { data: { reportId: latest.id, quality: latest.quality, reused: true }, meta: { source: latest.source, quality: latest.quality, revision: latest.revision } }
+      if (old.source !== provider.source) throw new ApiError('SERVER_MISCONFIGURED', 503, '현재는 이 경기의 새 분석을 만들 수 없어요. 기존 기록은 계속 볼 수 있어요.')
+      return createReport({ platform: old.platform, matchId: old.matchId, playerId: old.members[0]!.accountId }, deadline)
     },
     async events(id: string, input: { kinds: EventKind[]; memberNo?: number; cursor?: string; limit: number }): Promise<ApiResponse<EventsData>> {
       const report = await readStored(id)
