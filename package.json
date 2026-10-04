@@ -1,0 +1,49 @@
+{
+  "name": "pubg-droplog",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "start": "node .output/server/index.mjs",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright test",
+    "test:smoke": "node --env-file-if-exists=.env --import tsx scripts/production-smoke.ts",
+    "benchmark": "node --import tsx scripts/benchmark.ts",
+    "validate:live": "node --env-file-if-exists=.env --import tsx scripts/live-check.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env --import tsx scripts/migrate.ts"
+  },
+  "dependencies": {
+    "@nuxt/ui": "4.11.3",
+    "drizzle-orm": "0.45.3",
+    "h3": "1.15.11",
+    "nuxt": "4.5.2",
+    "postgres": "3.4.9",
+    "pubg-kit": "1.4.4",
+    "tailwindcss": "4.3.3",
+    "vue": "3.5.43",
+    "vue-router": "5.3.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@iconify-json/lucide": "1.2.139",
+    "@nuxt/eslint": "1.17.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.10.1",
+    "drizzle-kit": "0.31.11",
+    "eslint": "10.12.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3",
+    "vue-tsc": "3.3.12"
+  }
+}

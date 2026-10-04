@@ -1,0 +1,19 @@
+name: pubg-droplog
+services:
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: droplog
+      POSTGRES_PASSWORD: local_demo_only
+      POSTGRES_DB: droplog
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - droplog-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U droplog -d droplog']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  droplog-data:
