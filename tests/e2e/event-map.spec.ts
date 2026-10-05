@@ -329,10 +329,10 @@ test('connections are absent without two distinct valid positions or a supported
   }
 
   await page.unroute('**/api/reports/**')
-  await installFixture(page, { mapName: 'Neon_Main', events: [valid] })
+  await installFixture(page, { mapName: 'FutureMap', events: [valid] })
   await openReport(page)
   await eventItem(page, valid.id).click()
-  await expect(page.getByTestId('event-map-image')).toBeVisible()
+  await expect(page.getByTestId('event-map-image')).toHaveCount(0)
   await expect(eventItem(page, valid.id)).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByTestId('selected-event-connection')).toHaveCount(0)
   await expect(page.getByTestId('event-connection-line')).toHaveCount(0)
@@ -758,10 +758,12 @@ test('an unrecognized map keeps the timeline usable when there is no map image',
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('Rondo shows its map and timeline without projecting unverified coordinates', async ({
+test('Rondo projects event coordinates and connects the selected actor and target', async ({
   page,
 }) => {
-  await installFixture(page, { mapName: 'Neon_Main' })
+  const event = fixtureEvent('rondo-kill', 'kill', 20, 526_347.25, 437_304.125)
+  event.target!.location!.z = 497.1755065917969
+  await installFixture(page, { mapName: 'Neon_Main', events: [event] })
   await openReport(page)
   const image = page.getByTestId('event-map-image')
   await expect(image).toHaveAttribute('src', '/maps/rondo.webp')
@@ -770,13 +772,27 @@ test('Rondo shows its map and timeline without projecting unverified coordinates
       image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0),
     )
     .toBe(true)
-  await expect(page.getByTestId('map-unsupported')).toBeVisible()
-  await expect(page.getByTestId('event-marker')).toHaveCount(0)
-  await expect(page.getByTestId('timeline-event')).toHaveCount(4)
-  await eventItem(page, 'knock-first').click()
-  await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByTestId('selected-target-marker')).toHaveCount(0)
-  await expect(page.getByTestId('selected-actor-marker')).toHaveCount(0)
+  await expect(page.getByTestId('map-unsupported')).toHaveCount(0)
+  await expect(page.getByTestId('map-no-locations')).toHaveCount(0)
+  await expect(page.getByTestId('event-marker')).toHaveCount(1)
+  await expect(page.getByTestId('timeline-event')).toHaveCount(1)
+  const position = await marker(page, event.id).evaluate((element) => ({
+    x: Number.parseFloat((element as HTMLElement).style.left),
+    y: Number.parseFloat((element as HTMLElement).style.top),
+  }))
+  expect(position.x).toBeCloseTo(64.50333946078432)
+  expect(position.y).toBeCloseTo(53.591191789215685)
+  await marker(page, event.id).click()
+  await expect(eventItem(page, event.id)).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('selected-target-marker')).toBeVisible()
+  await expect(page.getByTestId('selected-actor-marker')).toBeVisible()
+  await expect(page.getByTestId('selected-event-connection')).toBeVisible()
+  const endpoint = await page.getByTestId('event-connection-line').evaluate((element) => ({
+    x: Number.parseFloat(element.getAttribute('x2')!),
+    y: Number.parseFloat(element.getAttribute('y2')!),
+  }))
+  expect(endpoint.x).toBeCloseTo(position.x)
+  expect(endpoint.y).toBeCloseTo(position.y)
 })
 
 test('a legacy report upgrades only after a click and navigates to a separate report URL', async ({

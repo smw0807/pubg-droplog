@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getMapExtent, projectMapLocation } from '../../shared/utils/map-coordinates'
 
-describe('official map coordinate bounds', () => {
+describe('map coordinate bounds', () => {
   it.each([
     'Baltic_Main',
     'Erangel_Main',
@@ -25,13 +25,21 @@ describe('official map coordinate bounds', () => {
     expect(projectMapLocation(map, { x: extent / 2, y: extent / 2 })).toEqual({ x: 50, y: 50 })
   })
 
-  it.each(['Neon_Main', 'FutureMap', 'toString', '__proto__'])(
-    'does not guess a range for %s',
-    (map) => {
-      expect(getMapExtent(map)).toBeNull()
-      expect(projectMapLocation(map, { x: 0, y: 0 })).toBeNull()
-    },
-  )
+  it.each(['FutureMap', 'toString', '__proto__'])('does not guess a range for %s', (map) => {
+    expect(getMapExtent(map)).toBeNull()
+    expect(projectMapLocation(map, { x: 0, y: 0 })).toBeNull()
+  })
+
+  it('projects the Rondo event sample using the shared 8 km map convention', () => {
+    expect(getMapExtent('Neon_Main')).toBe(816_000)
+    const point = projectMapLocation('Neon_Main', {
+      x: 526_347.25,
+      y: 437_304.125,
+      z: 497.1755065917969,
+    })
+    expect(point?.x).toBeCloseTo(64.50333946078432)
+    expect(point?.y).toBeCloseTo(53.591191789215685)
+  })
 
   it('retains zero and boundary coordinates with top-left origin, without reversing Y', () => {
     expect(projectMapLocation('Baltic_Main', { x: 0, y: 0 })).toEqual({ x: 0, y: 0 })

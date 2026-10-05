@@ -79,9 +79,18 @@ describe('optional location normalization', () => {
 
   it('preserves valid raw coordinates for an unknown extent but does not project them', () => {
     const location = { x: 200_000, y: 400_000, z: 1500 }
+    const report = analyze([damage(location)], 'FutureMap')
+    expect(report.events[0]?.target?.location).toEqual(location)
+    expect(projectMapLocation('FutureMap', report.events[0]?.target?.location)).toBeNull()
+  })
+
+  it('preserves and projects target coordinates from a Rondo report', () => {
+    const location = { x: 526_347.25, y: 437_304.125, z: 497.1755065917969 }
     const report = analyze([damage(location)], 'Neon_Main')
     expect(report.events[0]?.target?.location).toEqual(location)
-    expect(projectMapLocation('Neon_Main', report.events[0]?.target?.location)).toBeNull()
+    const point = projectMapLocation('Neon_Main', report.events[0]?.target?.location)
+    expect(point?.x).toBeCloseTo(64.50333946078432)
+    expect(point?.y).toBeCloseTo(53.591191789215685)
   })
 
   it('keeps killer, victim, knock maker and finisher positions separate and never infers assist locations', () => {

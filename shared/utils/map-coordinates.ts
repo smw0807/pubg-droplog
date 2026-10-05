@@ -4,7 +4,10 @@ import type { MapLocation } from '../types'
  * Official telemetry coordinates are centimeters, with (0, 0) at top-left.
  * Bounds: https://documentation.pubg.com/en/telemetry-objects.html#location
  * Raw names: https://github.com/pubg/api-assets/blob/master/dictionaries/telemetry/mapName.json
- * Rondo is intentionally absent until its telemetry extent is documented.
+ * Rondo uses the same 816,000 cm frame as the other 8 km maps, corroborated by
+ * https://pubg.gs/maps/rondo/tables/ (8x8 cells of 1.02 km from level data).
+ * The official bounds page still omits Rondo; the proposed docs correction is
+ * https://github.com/pubg/api-documentation-content/issues/133 (not yet merged).
  */
 const mapExtents: Readonly<Record<string, number>> = {
   Baltic_Main: 816_000,
@@ -13,6 +16,7 @@ const mapExtents: Readonly<Record<string, number>> = {
   Tiger_Main: 816_000,
   DihorOtok_Main: 816_000,
   Kiki_Main: 816_000,
+  Neon_Main: 816_000,
   Savage_Main: 408_000,
   Chimera_Main: 306_000,
   Summerland_Main: 204_000,
