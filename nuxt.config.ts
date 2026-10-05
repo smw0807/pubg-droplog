@@ -7,7 +7,12 @@ export default defineNuxtConfig({
   colorMode: { preference: 'dark', fallback: 'dark' },
   ui: { fonts: false },
   icon: { serverBundle: { collections: ['lucide'] } },
-  runtimeConfig: { pubgApiKey: '', databaseUrl: '', dataMode: 'demo' },
+  runtimeConfig: {
+    pubgApiKey: '',
+    databaseUrl: '',
+    dataMode: 'demo',
+    public: { siteUrl: '' },
+  },
   nitro: {
     preset: 'node-server',
     // pubg-kit uses Zod 3 while app DTOs use Zod 4. Externalizing both as

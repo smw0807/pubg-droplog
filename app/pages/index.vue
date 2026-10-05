@@ -1,7 +1,9 @@
 <script setup lang="ts">
-useSeoMeta({
+usePageSeo({
   title: 'PUBG DropLog · 우리 팀의 한 판',
   description: 'PUBG 3인칭 일반·랭크 듀오와 스쿼드의 팀 성적과 사건을 함께 돌아보세요.',
+  image: 'home',
+  imageAlt: 'PUBG DropLog — 우리 팀의 한 판',
 })
 const { data: status } = await useFetch<{ data: { mode: string } }>('/api/status')
 </script>

@@ -4,6 +4,17 @@
 
 실행 절차는 [개발 안내](development.md#검증), 현재 남은 작업은 [진행 상태](progress.md#다음-작업과-완료-기준), 성능 수치 해석은 [성능 기록](performance.md)을 참고하세요.
 
+## 2026-10-05 화면별 OG 공유 미리보기
+
+메인·전적·리포트에 각각 1200×630 PNG와 Open Graph·Twitter Card 메타태그를 추가했다. 전적의 이름·플랫폼과 리포트의 맵·모드·확인된 순위·팀 킬을 서버 HTML에 반영한다. 샘플은 합성임을 표시하고, 데이터 조회 실패 시 기본 문구를 제공한다. 리포트 `noindex, nofollow`를 유지하며 canonical·`og:url`에서 필터·복귀·추적 쿼리와 해시를 제외한다. PNG는 정적 브랜드 이미지이고 개인별 통계를 그려 넣지는 않는다.
+
+- 생성한 PNG 3개를 직접 열어 한글·잘림·겹침을 확인했다. 이미지 원본 스크립트와 글꼴 조건은 [브랜딩 문서](branding.md#공유-이미지)에 기록했다.
+- URL 단위 테스트 **8개 통과**: 공개 origin 우선, 로컬 요청 주소 대체, 쿼리·해시 제거, 잘못된 설정과 인증정보 포함 URL, 경로에 의한 origin 이탈 방지.
+- 별도 demo 개발 서버 Chromium **5개 통과(6.0초)**: 3종 서버 HTML의 OG·Twitter·canonical 및 PNG 응답, 실패 화면의 기본 문구, 실제 SPA 왕복 후 메타태그 중복·이전 리포트 robots 잔존 없음. JavaScript를 끈 문서로 원본 HTTP head를 검사했다. `NUXT_PUBLIC_SITE_URL=https://droplog.example`로 설정해 요청 주소와 다른 공개 origin도 검증했다.
+- `pnpm build` 후 별도 생산 Nitro 서버에서 서버 HTML·PNG 검증 **3개 통과(1.2초)**. 공개 origin을 비워 현재 요청 origin을 사용하는 경우를 확인했다. 모든 PNG는 HTTP 200·`image/png`·1200×630이다.
+- 명령: `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3114 OG_EXPECTED_ORIGIN=https://droplog.example pnpm exec playwright test tests/e2e/seo.spec.ts`. 생산 검증은 `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3115`와 `--grep 'HTML-only'`를 사용했다. Chromium 설치 경로는 해당 환경에 맞게 `PLAYWRIGHT_BROWSERS_PATH`로 지정했다.
+- 변경 파일 ESLint·Prettier·`pnpm typecheck` 통과. 전용 `droplog_test` DB와 합성 demo 데이터를 사용했으며 앱 DB 쓰기나 외부 PUBG 호출은 없었다. 전체 앱 E2E와 공개 배포 후 카카오톡 등 외부 서비스 미리보기는 이번 검증 범위에 포함하지 않았다.
+
 ## 2026-10-05 리포트에서 전적 목록 복귀
 
 리포트 상단의 `플레이어 검색`을 `전적 목록`으로 변경했다. 목록에서 리포트를 열 때 검색한 플레이어와 경기 종류·팀 모드 필터를 URL에 전달하며, 새로고침·공유 링크·리포트 업그레이드 후에도 같은 목록으로 돌아간다. 같은 팀 리포트는 여러 플레이어가 재사용하므로 이동 정보는 리포트에 저장하지 않는다. 이동 정보가 없거나 팀원과 맞지 않는 이전 링크는 첫 팀원의 목록으로 연결한다. 목록의 추가 조회 페이지나 스크롤 위치는 복원하지 않는다.

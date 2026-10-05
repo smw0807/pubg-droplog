@@ -61,11 +61,27 @@ const sampleOptions = [
 const sampleId = computed(() =>
   sampleOptions.some((item) => item.value === report.value?.id) ? report.value?.id : undefined,
 )
-useSeoMeta({
+usePageSeo({
   title: () =>
     report.value
-      ? `${display.map(report.value.summary.mapName)} ${display.team(report.value.summary.teamMode)} 리포트 · PUBG DropLog`
+      ? `${report.value.source === 'demo' ? '샘플 · ' : ''}${display.map(report.value.summary.mapName)} ${display.team(report.value.summary.teamMode)} 리포트 · PUBG DropLog`
       : '경기 리포트 · PUBG DropLog',
+  description: () => {
+    if (!report.value) return 'PUBG 팀 성적표와 사건 타임라인, 이벤트 지도를 한곳에서 확인하세요.'
+    const { summary, source } = report.value
+    const details = [
+      display.map(summary.mapName),
+      `${display.queue(summary.queueType)} ${display.team(summary.teamMode)}`,
+      summary.rank !== null ? `${display.number(summary.rank)}위` : null,
+      summary.killsComplete && summary.teamKills !== null
+        ? `팀 ${display.number(summary.teamKills)}킬`
+        : null,
+    ].filter(Boolean)
+    const sample = source === 'demo' ? '합성 데이터로 구성한 샘플 리포트입니다. ' : ''
+    return `${sample}${details.join(' · ')}. 팀 성적표와 기절·처치·소생 타임라인, 이벤트 지도로 우리 팀의 한 판을 돌아보세요.`
+  },
+  image: 'report',
+  imageAlt: 'PUBG DropLog 경기 리포트 — 성적표 · 사건 타임라인 · 이벤트 지도',
   robots: 'noindex, nofollow',
 })
 function syncRetryTime() {

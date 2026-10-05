@@ -4,12 +4,13 @@
 
 ## 환경변수
 
-| 변수                | 설명                                                 |
-| ------------------- | ---------------------------------------------------- |
-| `NUXT_DATA_MODE`    | `demo` 또는 `live`. 기본 `demo`; 다른 값은 설정 오류 |
-| `NUXT_PUBG_API_KEY` | live 전용 PUBG API 키. 비공개 서버 설정              |
-| `NUXT_DATABASE_URL` | PostgreSQL 연결 문자열. 비공개 서버 설정             |
-| `PORT`, `HOST`      | 생산 Nitro 서버의 포트와 리슨 주소                   |
+| 변수                   | 설명                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `NUXT_DATA_MODE`       | `demo` 또는 `live`. 기본 `demo`; 다른 값은 설정 오류                    |
+| `NUXT_PUBG_API_KEY`    | live 전용 PUBG API 키. 비공개 서버 설정                                 |
+| `NUXT_DATABASE_URL`    | PostgreSQL 연결 문자열. 비공개 서버 설정                                |
+| `NUXT_PUBLIC_SITE_URL` | OG 이미지·공유 URL·canonical에 사용할 공개 origin. 로컬에서는 생략 가능 |
+| `PORT`, `HOST`         | 생산 Nitro 서버의 포트와 리슨 주소                                      |
 
 설정 이름은 [nuxt.config.ts](../nuxt.config.ts), 로컬 예시는 [.env.example](../.env.example), DB는 [compose.yaml](../compose.yaml)을 따릅니다. `.env`와 실제 인증정보는 Git·로그·문서에 넣지 않습니다. `runtimeConfig.public`에는 비밀값을 두지 않습니다.
 
@@ -65,6 +66,14 @@ VS Code에서 권장 확장 프로그램인 ESLint, Prettier, Vue - Official을 
 에디터에서도 프로젝트에 설치된 TypeScript를 사용합니다. `.vscode/settings.json`의 `js/ts.tsdk.path`는 `node_modules/typescript/lib`를 가리키며, 작업 영역 버전 사용 알림에서 허용을 선택합니다. 알림이 없다면 명령 팔레트의 `TypeScript: Select TypeScript Version`에서 작업 영역 버전을 선택합니다. 이전 버전의 VS Code에서 새 설정 키를 인식하지 못하면 `typescript.tsdk`에 같은 경로를 지정합니다.
 
 Nuxt가 생성하는 `module: preserve`는 [TypeScript 5.4부터 지원](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-4.html)됩니다. 오래된 TypeScript Nightly 확장의 5.3 버전을 사용하면 최상위 `await`에 `ts-plugin(1378)` 오류가 표시될 수 있습니다. 프로젝트 버전 선택 후에도 이전 진단이 남으면 `TypeScript: Restart TS Server`를 실행합니다. 이 경우 생성된 `.nuxt/tsconfig*.json`이나 페이지의 `await`를 수정할 필요는 없습니다.
+
+## 링크 공유 미리보기
+
+메인·전적·리포트는 서버 HTML에 Open Graph와 Twitter Card 메타태그를 포함합니다. 전적은 조회된 플레이어 이름·플랫폼, 리포트는 맵·모드·확인된 순위·팀 킬을 문구에 반영합니다. 합성 샘플은 제목·설명에 샘플임을 표시하며, 데이터 조회 실패 시에는 기본 문구를 사용합니다. 이미지는 페이지 종류별 정적 PNG이고 플레이어별로 별도 이미지를 생성하지 않습니다.
+
+배포 환경의 `NUXT_PUBLIC_SITE_URL`을 실제 공개 origin(예: `https://서비스도메인`)으로 설정하세요. 경로·쿼리·해시 없이 프로토콜과 도메인을 사용합니다. 이 값이 없으면 현재 요청의 origin을 사용합니다. 메타태그의 URL은 절대 주소이며, 전적 필터·리포트 복귀 정보·추적 쿼리와 해시는 canonical 및 `og:url`에서 제외합니다. 사용자가 복사하는 공유 링크의 복귀 정보는 유지됩니다. 리포트의 `noindex, nofollow` 정책도 유지합니다.
+
+이미지 파일과 재생성 방법은 [브랜딩 문서](branding.md#공유-이미지)를 참고합니다. localhost는 외부 공유 서비스에서 접근할 수 없으므로 실제 카카오톡 등의 미리보기 확인은 공개 배포 후 진행합니다. 구현 기준은 [Nuxt SEO 안내](https://nuxt.com/docs/4.x/getting-started/seo-meta)와 [Open Graph 명세](https://ogp.me/)입니다.
 
 ## 검증
 

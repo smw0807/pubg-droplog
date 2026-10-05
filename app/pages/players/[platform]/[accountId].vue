@@ -50,8 +50,19 @@ onMounted(() => {
 })
 let requestVersion = 0
 let controller: AbortController | undefined
-useSeoMeta({
-  title: () => `${response.value?.data.player.displayName ?? '플레이어'}의 경기 · PUBG DropLog`,
+usePageSeo({
+  title: () =>
+    `${response.value?.meta.source === 'demo' ? '샘플 · ' : ''}${response.value?.data.player.displayName ?? '플레이어'}의 전적 · PUBG DropLog`,
+  description: () => {
+    const player = response.value?.data.player
+    if (!player)
+      return 'PUBG 플레이어의 최근 14일 일반·랭크 듀오·스쿼드 전적과 팀 리포트를 확인하세요.'
+    const sample =
+      response.value?.meta.source === 'demo' ? '합성 데이터로 구성한 샘플 전적입니다. ' : ''
+    return `${sample}${player.displayName}의 ${display.platform(player.platform)} 최근 14일 전적. 3인칭 일반·랭크 듀오·스쿼드 경기와 팀 리포트를 확인하세요.`
+  },
+  image: 'player',
+  imageAlt: 'PUBG DropLog 플레이어 전적 — 최근 경기부터 팀의 기록까지',
 })
 function reconcileFailures(result: Response, cursor: string | undefined) {
   const failedIds = new Set(result.meta.failedMatchIds)
