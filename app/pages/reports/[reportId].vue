@@ -34,7 +34,7 @@ let controller: AbortController | undefined
 let requestVersion = 0
 const sampleOptions = [{ label: '일반 듀오', value: 'demo-normal-duo' }, { label: '일반 스쿼드', value: 'demo-normal-squad' }, { label: '랭크 듀오', value: 'demo-ranked-duo' }, { label: '랭크 스쿼드', value: 'demo-ranked-squad' }]
 const sampleId = computed(() => sampleOptions.some(item => item.value === report.value?.id) ? report.value?.id : undefined)
-useSeoMeta({ title: () => report.value ? `${display.map(report.value.summary.mapName)} ${display.team(report.value.summary.teamMode)} 리포트 · Squad Review` : '경기 리포트 · Squad Review', robots: 'noindex, nofollow' })
+useSeoMeta({ title: () => report.value ? `${display.map(report.value.summary.mapName)} ${display.team(report.value.summary.teamMode)} 리포트 · PUBG DropLog` : '경기 리포트 · PUBG DropLog', robots: 'noindex, nofollow' })
 function syncRetryTime() {
   if (report.value?.retry.notBefore) retryGate.block(Math.max(0, (Date.parse(report.value.retry.notBefore) - Date.now()) / 1000))
 }

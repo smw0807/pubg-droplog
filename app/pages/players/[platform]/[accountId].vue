@@ -23,7 +23,7 @@ const retryGate = useRetryGate()
 onMounted(() => { if (error.value?.retryAfterSeconds) retryGate.block(error.value.retryAfterSeconds) })
 let requestVersion = 0
 let controller: AbortController | undefined
-useSeoMeta({ title: () => `${response.value?.data.player.displayName ?? '플레이어'}의 경기 · Squad Review` })
+useSeoMeta({ title: () => `${response.value?.data.player.displayName ?? '플레이어'}의 경기 · PUBG DropLog` })
 function reconcileFailures(result: Response, cursor: string | undefined) {
   const failedIds = new Set(result.meta.failedMatchIds)
   failedBatches.value = failedBatches.value.map(batch => batch.checked <= result.meta.checked ? { ...batch, ids: batch.ids.filter(id => failedIds.has(id)) } : batch).filter(batch => batch.ids.length)

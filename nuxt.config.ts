@@ -18,5 +18,15 @@ export default defineNuxtConfig({
     '/reports/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } },
     '/api/**': { headers: { 'Cache-Control': 'no-store' } },
   },
-  app: { head: { htmlAttrs: { lang: 'ko' }, title: 'DropLog · 우리 팀의 한 판' } },
+  app: {
+    head: {
+      htmlAttrs: { lang: 'ko' },
+      title: 'PUBG DropLog · 우리 팀의 한 판',
+      link: [
+        { rel: 'icon', type: 'image/x-icon', sizes: '16x16 32x32 48x48', href: '/favicon.ico' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+      ],
+    },
+  },
 })
