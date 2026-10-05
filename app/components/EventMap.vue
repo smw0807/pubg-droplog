@@ -18,6 +18,8 @@ const activeGroupId = ref<string | null>(null)
 const maxGroups = 100
 const listPageSize = 6
 const map = computed(() => getMapMetadata(props.mapName))
+const loadedDetailImage = ref<{ mapName: string; src: string } | null>(null)
+const mapImage = computed(() => loadedDetailImage.value?.mapName === props.mapName ? loadedDetailImage.value.src : map.value.image ?? undefined)
 const supported = computed(() => getMapExtent(props.mapName) !== null && map.value.image !== null)
 const names: Record<ReportEvent['kind'], string> = { knock: '기절', revive: '소생', kill: '처치와 사망', damage: '피해' }
 const icons: Record<ReportEvent['kind'], string> = { knock: 'i-lucide-circle-arrow-down', revive: 'i-lucide-heart-pulse', kill: 'i-lucide-crosshair', damage: 'i-lucide-zap' }
@@ -170,7 +172,31 @@ watch(groups, () => {
   pinPage.value = Math.min(pinPage.value, pageCount.value - 1)
   listPage.value = Math.min(listPage.value, listPageCount.value - 1)
 })
-watch(() => props.mapName, () => { resetView(); pinPage.value = 0; listPage.value = 0; activeGroupId.value = null })
+let detailImageRequest = 0
+let requestedDetailImage: string | null = null
+watch(() => props.mapName, () => {
+  resetView(); pinPage.value = 0; listPage.value = 0; activeGroupId.value = null
+  loadedDetailImage.value = null
+  requestedDetailImage = null
+  detailImageRequest++
+})
+watch(() => scale.value > 1, async zoomed => {
+  const src = map.value.detailImage
+  if (!import.meta.client || !zoomed || !src || requestedDetailImage === src) return
+  requestedDetailImage = src
+  const request = ++detailImageRequest
+  const mapName = props.mapName
+  const image = new Image()
+  image.src = src
+  try {
+    // Keep the preview visible until the larger image is ready to render.
+    await image.decode()
+    if (request === detailImageRequest && mapName === props.mapName) loadedDetailImage.value = { mapName, src }
+  } catch {
+    // The preview remains usable if a detail image cannot load or decode.
+  }
+})
+onBeforeUnmount(() => { detailImageRequest++ })
 </script>
 
 <template>
@@ -181,7 +207,7 @@ watch(() => props.mapName, () => { resetView(); pinPage.value = 0; listPage.valu
     </div>
     <div v-if="map.image" ref="viewport" class="map-viewport" :class="{ 'map-viewport--zoomed': scale > 1, 'map-viewport--dragging': dragging }" tabindex="0" role="region" aria-label="경기 이벤트 지도" aria-describedby="event-map-instructions" data-testid="map-viewport" :data-scale="scale" :data-pan-x="pan.x" :data-pan-y="pan.y" @pointerdown="startDrag" @pointermove="moveDrag" @pointerup="stopDrag" @pointercancel="stopDrag" @lostpointercapture="stopDrag" @keydown="keyPan" @wheel="wheelZoom">
       <div class="map-scene" :style="sceneStyle">
-        <img :src="map.image" :alt="`${map.name} 전체 지도`" class="map-image" width="900" height="900" draggable="false" data-testid="event-map-image">
+        <img :key="mapName" :src="mapImage" :alt="`${map.name} 전체 지도`" class="map-image" width="900" height="900" draggable="false" data-testid="event-map-image">
         <button v-for="group in visibleGroups" :key="group.id" type="button" class="event-marker" :class="{ 'event-marker--selected': isSelectedGroup(group) }" :style="{ ...pointStyle(group), ...memberStyle(group.first.event), '--marker-scale': 1 / scale }" :aria-label="`${eventLabel(group.first.event)}${group.events.length > 1 ? ` 외 ${group.events.length - 1}개, 겹친 사건 목록 열기` : ', 사건 선택'}`" :aria-pressed="isSelectedGroup(group)" :data-event-id="group.first.event.id" data-testid="event-marker" @click.stop="chooseGroup(group)">
           <span class="event-marker__body"><UIcon :name="icons[group.first.event.kind]" class="size-4" /><span v-if="group.events.length > 1" class="event-marker__count">{{ group.events.length }}</span><span v-else-if="group.first.event.target?.memberNo" class="event-marker__member">{{ group.first.event.target.memberNo }}</span></span>
         </button>

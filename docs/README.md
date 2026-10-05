@@ -8,6 +8,7 @@
 | [progress.md](progress.md) | 현재 구현 상태와 다음 작업 | 작업을 이어받거나 남은 범위를 확인할 때 |
 | [validation.md](validation.md) | 날짜가 있는 검증 결과 | 통과한 검증과 미검증 범위를 확인할 때 |
 | [performance.md](performance.md) | 성능 측정의 조건·결과 | 입력 크기, 응답 시간, 메모리 수치를 해석할 때 |
+| [map-assets.md](map-assets.md) | 고해상도 맵 출처와 변환 | 원본 다운로드, 해상도, 확대 이미지 교체 방식을 확인할 때 |
 | [sdk-review.md](sdk-review.md) | 설치한 SDK 검토와 어댑터 예외 | pubg-kit 또는 서버 전송 경로를 변경할 때 |
 | [PUBG_SQUAD_REVIEW_PRD.md](PUBG_SQUAD_REVIEW_PRD.md) | 초기 MVP 1.1의 요구·수용 기준 | 설계 의도와 원래 계약을 확인할 때 |
 | [초기 구현 프롬프트](archive/CODEX_START_PROMPT.md) | 최초 작업 요청 원문 | 초기 구현 배경을 참고할 때 |

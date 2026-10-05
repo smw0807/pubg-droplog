@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page, type Route } from '@playwright/test'
 import type { Report, ReportEvent } from '../../shared/types'
 
 const reportId = 'demo-normal-squad'
@@ -157,6 +157,65 @@ test('zoom, keyboard movement, drag and reset work without changing event select
   await expect(viewport).toHaveAttribute('data-pan-x', '0')
   await expect(viewport).toHaveAttribute('data-pan-y', '0')
   await expect(eventItem(page, 'knock-other')).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('map detail loads only after zoom and keeps the preview until it can display the full image', async ({ page }) => {
+  let detailRequests = 0
+  let pendingDetail: Route | undefined
+  await page.route('**/maps/erangel-high.webp', route => {
+    detailRequests++
+    if (detailRequests === 1) pendingDetail = route
+    else return route.continue()
+  })
+  await installFixture(page)
+  await openReport(page)
+  const image = page.getByTestId('event-map-image')
+  const viewport = page.getByTestId('map-viewport')
+  await expect(image).toHaveAttribute('src', '/maps/erangel.webp')
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  expect(detailRequests).toBe(0)
+
+  await eventItem(page, 'knock-first').click()
+  await page.getByRole('button', { name: '지도 확대', exact: true }).click()
+  await expect.poll(() => detailRequests).toBe(1)
+  await expect(image).toHaveAttribute('src', '/maps/erangel.webp')
+  expect(await image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
+
+  await pendingDetail!.continue()
+  await expect(image).toHaveAttribute('src', '/maps/erangel-high.webp', { timeout: 15000 })
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth), { timeout: 15000 }).toBe(8192)
+  const loadedRequests = detailRequests
+  await page.getByRole('button', { name: '지도 초기화', exact: true }).click()
+  await expect(viewport).toHaveAttribute('data-scale', '1')
+  await expect(image).toHaveAttribute('src', '/maps/erangel-high.webp')
+  await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: '지도 확대', exact: true }).click()
+  await nextPaint(page)
+  expect(detailRequests).toBe(loadedRequests)
+})
+
+test('a failed map detail request preserves the decoded preview without a retry loop', async ({ page }) => {
+  let detailRequests = 0
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.route('**/maps/erangel-high.webp', async route => {
+    detailRequests++
+    await route.abort('failed')
+  })
+  await installFixture(page)
+  await openReport(page)
+  const image = page.getByTestId('event-map-image')
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  await page.getByRole('button', { name: '지도 확대', exact: true }).click()
+  await expect.poll(() => detailRequests).toBe(1)
+  await page.getByRole('button', { name: '지도 초기화', exact: true }).click()
+  await page.getByRole('button', { name: '지도 확대', exact: true }).click()
+  await nextPaint(page)
+  await expect(image).toHaveAttribute('src', '/maps/erangel.webp')
+  expect(await image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  expect(detailRequests).toBe(1)
+  expect(errors).toEqual([])
 })
 
 test('real wheel zoom keeps the cursor image point, selected event and scroll positions stable', async ({ page }) => {
@@ -318,18 +377,66 @@ test('more than 100 pin groups and more than six overlapping events remain indiv
   await expect(marker(page, 'grid-199')).toHaveCount(0)
 })
 
-for (const mapName of ['Savage_Main', 'Unrecognized_Map']) {
-  test(`${mapName} keeps the timeline usable when there is no map image`, async ({ page }) => {
-    await installFixture(page, { mapName })
+for (const { mapName, slug, extent } of [
+  { mapName: 'Savage_Main', slug: 'sanhok', extent: 408000 },
+  { mapName: 'DihorOtok_Main', slug: 'vikendi', extent: 816000 },
+  { mapName: 'Summerland_Main', slug: 'karakin', extent: 204000 },
+  { mapName: 'Kiki_Main', slug: 'deston', extent: 816000 },
+  { mapName: 'Chimera_Main', slug: 'paramo', extent: 306000 },
+  { mapName: 'Heaven_Main', slug: 'haven', extent: 102000 },
+]) {
+  test(`${slug} decodes its official preview and detail while keeping in-bounds events selectable`, async ({ page }) => {
+    let detailRequests = 0
+    page.on('request', request => { if (new URL(request.url()).pathname === `/maps/${slug}-high.webp`) detailRequests++ })
+    const event = fixtureEvent('map-center', 'knock', 10, extent * 0.25, extent * 0.5)
+    event.actor!.location = { x: extent * 0.2, y: extent * 0.4, z: 0 }
+    await installFixture(page, { mapName, events: [event] })
     await openReport(page)
-    await expect(page.getByTestId('event-map-image')).toHaveCount(0)
-    await expect(page.getByTestId('event-marker')).toHaveCount(0)
-    await expect(page.getByTestId('timeline-event')).toHaveCount(4)
-    await eventItem(page, 'knock-first').click()
-    await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    const image = page.getByTestId('event-map-image')
+    await expect(image).toHaveAttribute('src', `/maps/${slug}.webp`)
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(1024)
+    expect(detailRequests).toBe(0)
+    await expect(page.getByTestId('map-unsupported')).toHaveCount(0)
+    await expect(page.getByTestId('event-marker')).toHaveCount(1)
+    expect(await marker(page, event.id).evaluate(element => ({ x: (element as HTMLElement).style.left, y: (element as HTMLElement).style.top }))).toEqual({ x: '25%', y: '50%' })
+    await marker(page, event.id).click()
+    await expect(eventItem(page, event.id)).toHaveAttribute('aria-pressed', 'true')
+
+    await page.getByRole('button', { name: '지도 확대', exact: true }).click()
+    await expect.poll(() => detailRequests).toBeGreaterThan(0)
+    await expect(image).toHaveAttribute('src', `/maps/${slug}-high.webp`, { timeout: 15000 })
+    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth), { timeout: 15000 }).toBe(8192)
+    await expect(eventItem(page, event.id)).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('selected-target-marker')).toBeVisible()
+    await expect(page.getByTestId('selected-actor-marker')).toBeVisible()
   })
 }
+
+test('an unrecognized map keeps the timeline usable when there is no map image', async ({ page }) => {
+  await installFixture(page, { mapName: 'Unrecognized_Map' })
+  await openReport(page)
+  await expect(page.getByTestId('event-map-image')).toHaveCount(0)
+  await expect(page.getByTestId('event-marker')).toHaveCount(0)
+  await expect(page.getByTestId('timeline-event')).toHaveCount(4)
+  await eventItem(page, 'knock-first').click()
+  await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+})
+
+test('Rondo shows its map and timeline without projecting unverified coordinates', async ({ page }) => {
+  await installFixture(page, { mapName: 'Neon_Main' })
+  await openReport(page)
+  const image = page.getByTestId('event-map-image')
+  await expect(image).toHaveAttribute('src', '/maps/rondo.webp')
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true)
+  await expect(page.getByTestId('map-unsupported')).toBeVisible()
+  await expect(page.getByTestId('event-marker')).toHaveCount(0)
+  await expect(page.getByTestId('timeline-event')).toHaveCount(4)
+  await eventItem(page, 'knock-first').click()
+  await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('selected-target-marker')).toHaveCount(0)
+  await expect(page.getByTestId('selected-actor-marker')).toHaveCount(0)
+})
 
 test('a legacy report upgrades only after a click and navigates to a separate report URL', async ({ page }) => {
   const requests = await installFixture(page, { analysisVersion: '1', events: majorEvents.map(event => ({ ...event, actor: event.actor ? { ...event.actor, location: undefined } : null, target: event.target ? { ...event.target, location: undefined } : null })) })
