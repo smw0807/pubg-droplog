@@ -154,7 +154,7 @@ test('search to persisted report and shared reload', async ({ page }) => {
   await page.getByRole('textbox', { name: '플레이어 닉네임' }).fill('SquadMate')
   await page.getByRole('button', { name: '최근 경기 검색' }).click()
   await page.getByRole('button', { name: '리포트 보기', exact: true }).first().click()
-  await expect(page).toHaveURL(/\/reports\/[a-f0-9-]{36}$/)
+  await expect(page).toHaveURL(/\/reports\/[a-f0-9-]{36}(?:\?|$)/)
   await expect(page.getByText('샘플 리포트', { exact: true })).toBeVisible()
   const reportUrl = page.url()
   await page.reload()

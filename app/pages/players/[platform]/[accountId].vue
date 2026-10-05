@@ -6,6 +6,7 @@ import type {
   MatchesData,
   MatchesMeta,
 } from '~~/shared/types'
+import { getReportNavigationContext } from '~/utils/report-navigation'
 type Response = ApiResponse<MatchesData, MatchesMeta>
 interface FailedBatch {
   cursor: string | undefined
@@ -158,6 +159,11 @@ watch([queueType, teamMode], () => {
 onBeforeUnmount(() => controller?.abort())
 async function createReport(matchId: string) {
   if (creating.value || retryGate.seconds.value) return
+  const navigationContext = getReportNavigationContext({
+    playerId: String(route.params.accountId),
+    queueType: queueType.value,
+    teamMode: teamMode.value,
+  })
   creating.value = matchId
   error.value = null
   try {
@@ -166,7 +172,10 @@ async function createReport(matchId: string) {
       method: 'POST',
       body: { platform: route.params.platform, playerId: route.params.accountId, matchId },
     })
-    await navigateTo(`/reports/${result.data.reportId}`)
+    await navigateTo({
+      path: `/reports/${result.data.reportId}`,
+      query: navigationContext,
+    })
   } catch (cause) {
     error.value = parseError(cause)
     retryGate.block(error.value.retryAfterSeconds)

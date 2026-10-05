@@ -7,6 +7,7 @@ import type {
   ReportEvent,
 } from '~~/shared/types'
 import EventMap from '~/components/EventMap.vue'
+import { getReportMatchHistory, getReportNavigationContext } from '~/utils/report-navigation'
 definePageMeta({ key: (route) => route.path })
 const route = useRoute()
 const display = useDisplay()
@@ -16,6 +17,8 @@ const { data: initial, error: initialError } = await useFetch<ApiResponse<Report
   retry: 0,
 })
 const report = ref(initial.value?.data ?? null)
+const navigationContext = computed(() => getReportNavigationContext(route.query))
+const matchHistory = computed(() => getReportMatchHistory(report.value, navigationContext.value))
 const reportError = ref(initialError.value ? parseError(initialError.value) : null)
 const selected = ref('major')
 const memberNo = ref('all')
@@ -174,7 +177,10 @@ async function upgradeReport() {
       retry: 0,
       method: 'POST',
     })
-    await navigateTo(`/reports/${result.data.reportId}`)
+    await navigateTo({
+      path: `/reports/${result.data.reportId}`,
+      query: navigationContext.value,
+    })
   } catch (cause) {
     upgradeError.value = parseError(cause)
     upgradeGate.block(upgradeError.value.retryAfterSeconds)
@@ -205,13 +211,14 @@ onBeforeUnmount(() => controller?.abort())
 <template>
   <UContainer class="py-8 sm:py-12">
     <UButton
-      to="/"
+      :to="matchHistory?.to ?? '/'"
+      :title="matchHistory ? `${matchHistory.playerName} 전적 목록` : undefined"
       color="neutral"
       variant="link"
       icon="i-lucide-arrow-left"
       class="mb-6 -ml-3"
     >
-      플레이어 검색
+      {{ matchHistory ? '전적 목록' : '플레이어 검색' }}
     </UButton>
     <UAlert
       v-if="reportError"
@@ -267,7 +274,9 @@ onBeforeUnmount(() => controller?.abort())
             class="w-full sm:w-44"
             size="lg"
             aria-label="샘플 경기 조합"
-            @update:model-value="navigateTo(`/reports/${$event}`)"
+            @update:model-value="
+              navigateTo({ path: `/reports/${$event}`, query: navigationContext })
+            "
           />
         </div>
       </section>
