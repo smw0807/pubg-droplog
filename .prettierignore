@@ -1,0 +1,18 @@
+# Dependencies and generated output
+node_modules/
+.nuxt/
+.output/
+.data/
+coverage/
+test-results/
+playwright-report/
+
+# Machine-managed files and static assets
+pnpm-lock.yaml
+server/db/migrations/
+public/
+
+# Local configuration and logs
+.env
+.env.*
+*.log

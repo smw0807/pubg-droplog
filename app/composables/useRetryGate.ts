@@ -13,6 +13,8 @@ export function useRetryGate() {
       }, 250)
     }
   }
-  onBeforeUnmount(() => { if (timer) clearInterval(timer) })
+  onBeforeUnmount(() => {
+    if (timer) clearInterval(timer)
+  })
   return { seconds, block }
 }

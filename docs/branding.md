@@ -2,13 +2,13 @@
 
 낙하산(drop)과 펼친 기록장(log)을 연결한 심볼입니다. 기존 UI의 앰버·차콜 색상을 기준으로 제작했습니다. 프로젝트 이름은 로고 옆의 실제 텍스트로 표시합니다.
 
-| 파일 | 크기 | 용도 |
-| --- | --- | --- |
-| `public/brand/droplog-logo.png` | 1254×1254 | 생성 원본 |
-| `public/brand/droplog-mark.png` | 96×96 | 헤더에서 36×36으로 표시 |
-| `public/favicon-32x32.png` | 32×32 | 브라우저 파비콘 |
-| `public/favicon.ico` | 16·32·48 | 크기별 파비콘 |
-| `public/apple-touch-icon.png` | 180×180 | 홈 화면 아이콘 |
+| 파일                            | 크기      | 용도                    |
+| ------------------------------- | --------- | ----------------------- |
+| `public/brand/droplog-logo.png` | 1254×1254 | 생성 원본               |
+| `public/brand/droplog-mark.png` | 96×96     | 헤더에서 36×36으로 표시 |
+| `public/favicon-32x32.png`      | 32×32     | 브라우저 파비콘         |
+| `public/favicon.ico`            | 16·32·48  | 크기별 파비콘           |
+| `public/apple-touch-icon.png`   | 180×180   | 홈 화면 아이콘          |
 
 내장 `image_gen`으로 생성한 PNG를 원본으로 보관하고, `sips`로 크기만 변환했습니다. ICO에는 16·32·48px PNG를 함께 저장했습니다. 헤더 이미지에는 빈 `alt`를 사용하고 홈 링크의 `aria-label`로 서비스 이름을 전달합니다.
 

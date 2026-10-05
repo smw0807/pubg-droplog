@@ -21,16 +21,28 @@ const mapExtents: Readonly<Record<string, number>> = {
 }
 
 export function getMapExtent(mapName: string): number | null {
-  return Object.hasOwn(mapExtents, mapName) ? mapExtents[mapName] ?? null : null
+  return Object.hasOwn(mapExtents, mapName) ? (mapExtents[mapName] ?? null) : null
 }
 
 /** Percent positions on the full map image; never clamp or invent a coordinate. */
-export function projectMapLocation(mapName: string, location: MapLocation | null | undefined): { x: number; y: number } | null {
+export function projectMapLocation(
+  mapName: string,
+  location: MapLocation | null | undefined,
+): { x: number; y: number } | null {
   const extent = getMapExtent(mapName)
-  if (extent === null || !location || !Number.isFinite(location.x) || !Number.isFinite(location.y)
-    || location.x < 0 || location.y < 0 || location.x > extent || location.y > extent
-    || (location.z !== undefined && !Number.isFinite(location.z))) return null
+  if (
+    extent === null ||
+    !location ||
+    !Number.isFinite(location.x) ||
+    !Number.isFinite(location.y) ||
+    location.x < 0 ||
+    location.y < 0 ||
+    location.x > extent ||
+    location.y > extent ||
+    (location.z !== undefined && !Number.isFinite(location.z))
+  )
+    return null
   // This pure browser projection intentionally does not import server DTO
   // schemas or their validation runtime into the report page bundle.
-  return { x: location.x / extent * 100, y: location.y / extent * 100 }
+  return { x: (location.x / extent) * 100, y: (location.y / extent) * 100 }
 }

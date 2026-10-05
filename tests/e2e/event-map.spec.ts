@@ -5,13 +5,38 @@ const reportId = 'demo-normal-squad'
 const upgradedId = '11111111-1111-4111-8111-111111111111'
 const startedAt = '2026-10-04T08:00:00.000Z'
 
-function fixtureEvent(id: string, kind: ReportEvent['kind'], seconds: number, targetX: number | null, targetY: number | null): ReportEvent {
+function fixtureEvent(
+  id: string,
+  kind: ReportEvent['kind'],
+  seconds: number,
+  targetX: number | null,
+  targetY: number | null,
+): ReportEvent {
   return {
-    id, sourceIndex: seconds, occurredAt: new Date(Date.parse(startedAt) + seconds * 1000).toISOString(), elapsedMs: seconds * 1000, kind,
-    actor: { accountId: 'account.map-1', name: 'MapMate', memberNo: 1, location: targetX === null ? null : { x: 100000, y: 150000, z: 0 } },
-    target: { accountId: 'account.map-opponent', name: 'MapOpponent', memberNo: null, location: targetX === null || targetY === null ? null : { x: targetX, y: targetY } },
-    knockMaker: null, finisher: null, assists: [], weaponCode: kind === 'revive' ? null : 'WeapM416_C',
-    damage: kind === 'damage' ? 12 : null, cause: 'combat', warnings: [],
+    id,
+    sourceIndex: seconds,
+    occurredAt: new Date(Date.parse(startedAt) + seconds * 1000).toISOString(),
+    elapsedMs: seconds * 1000,
+    kind,
+    actor: {
+      accountId: 'account.map-1',
+      name: 'MapMate',
+      memberNo: 1,
+      location: targetX === null ? null : { x: 100000, y: 150000, z: 0 },
+    },
+    target: {
+      accountId: 'account.map-opponent',
+      name: 'MapOpponent',
+      memberNo: null,
+      location: targetX === null || targetY === null ? null : { x: targetX, y: targetY },
+    },
+    knockMaker: null,
+    finisher: null,
+    assists: [],
+    weaponCode: kind === 'revive' ? null : 'WeapM416_C',
+    damage: kind === 'damage' ? 12 : null,
+    cause: 'combat',
+    warnings: [],
   }
 }
 
@@ -21,37 +46,105 @@ const majorEvents: ReportEvent[] = [
   fixtureEvent('revive-no-location', 'revive', 30, null, null),
   fixtureEvent('knock-other', 'knock', 40, 600000, 600000),
 ]
-const damageEvents = Array.from({ length: 55 }, (_, index) => fixtureEvent(`damage-${index}`, 'damage', 50 + index, 120000 + index * 8000, 180000 + index * 6000))
+const damageEvents = Array.from({ length: 55 }, (_, index) =>
+  fixtureEvent(
+    `damage-${index}`,
+    'damage',
+    50 + index,
+    120000 + index * 8000,
+    180000 + index * 6000,
+  ),
+)
 
-function reportFixture(overrides: { mapName?: string; analysisVersion?: string; id?: string } = {}): Report {
+function reportFixture(
+  overrides: { mapName?: string; analysisVersion?: string; id?: string } = {},
+): Report {
   return {
-    id: overrides.id ?? reportId, source: overrides.analysisVersion === '1' ? 'live' : 'demo', platform: 'steam',
-    matchId: 'synthetic-map-match', rosterId: 'synthetic-map-roster', analysisVersion: overrides.analysisVersion ?? '2', revision: 1, quality: 'ready',
-    summary: { mapName: overrides.mapName ?? 'Baltic_Main', createdAt: startedAt, queueType: 'normal', teamMode: 'squad', perspective: 'tpp', classificationVersion: '1', rank: 3, teamKills: 4, teamDamage: 500, killsComplete: true, damageComplete: true },
-    members: [{ participantId: 'participant-map-1', accountId: 'account.map-1', name: 'MapMate', memberNo: 1, kills: 4, damageDealt: 500, revives: 1, timeSurvived: 1200, damageShare: 100 }],
-    warnings: [], generatedAt: startedAt, updatedAt: startedAt, retry: { available: false, notBefore: null, reason: 'READY' },
+    id: overrides.id ?? reportId,
+    source: overrides.analysisVersion === '1' ? 'live' : 'demo',
+    platform: 'steam',
+    matchId: 'synthetic-map-match',
+    rosterId: 'synthetic-map-roster',
+    analysisVersion: overrides.analysisVersion ?? '2',
+    revision: 1,
+    quality: 'ready',
+    summary: {
+      mapName: overrides.mapName ?? 'Baltic_Main',
+      createdAt: startedAt,
+      queueType: 'normal',
+      teamMode: 'squad',
+      perspective: 'tpp',
+      classificationVersion: '1',
+      rank: 3,
+      teamKills: 4,
+      teamDamage: 500,
+      killsComplete: true,
+      damageComplete: true,
+    },
+    members: [
+      {
+        participantId: 'participant-map-1',
+        accountId: 'account.map-1',
+        name: 'MapMate',
+        memberNo: 1,
+        kills: 4,
+        damageDealt: 500,
+        revives: 1,
+        timeSurvived: 1200,
+        damageShare: 100,
+      },
+    ],
+    warnings: [],
+    generatedAt: startedAt,
+    updatedAt: startedAt,
+    retry: { available: false, notBefore: null, reason: 'READY' },
   }
 }
 
-async function installFixture(page: Page, options: { mapName?: string; analysisVersion?: string; events?: ReportEvent[] } = {}) {
+async function installFixture(
+  page: Page,
+  options: { mapName?: string; analysisVersion?: string; events?: ReportEvent[] } = {},
+) {
   const events = options.events ?? [...majorEvents, ...damageEvents]
   let upgrades = 0
-  await page.route('**/api/reports/**', async route => {
+  await page.route('**/api/reports/**', async (route) => {
     const url = new URL(route.request().url())
     const activeId = url.pathname.split('/')[3]!
-    const report = reportFixture({ ...options, id: activeId, analysisVersion: activeId === upgradedId ? '2' : options.analysisVersion })
+    const report = reportFixture({
+      ...options,
+      id: activeId,
+      analysisVersion: activeId === upgradedId ? '2' : options.analysisVersion,
+    })
     const meta = { source: report.source, quality: report.quality, revision: report.revision }
     if (url.pathname.endsWith('/upgrade')) {
       expect(route.request().method()).toBe('POST')
       upgrades++
-      await route.fulfill({ json: { data: { reportId: upgradedId, quality: 'ready', reused: false }, meta } })
+      await route.fulfill({
+        json: { data: { reportId: upgradedId, quality: 'ready', reused: false }, meta },
+      })
     } else if (url.pathname.endsWith('/events')) {
       const kinds = (url.searchParams.get('kinds') ?? 'knock,revive,kill').split(',')
       const member = url.searchParams.get('memberNo')
-      const filtered = events.filter(event => kinds.includes(event.kind) && (!member || [event.actor, event.target, event.knockMaker, event.finisher, ...event.assists].some(role => role?.memberNo === Number(member))))
+      const filtered = events.filter(
+        (event) =>
+          kinds.includes(event.kind) &&
+          (!member ||
+            [event.actor, event.target, event.knockMaker, event.finisher, ...event.assists].some(
+              (role) => role?.memberNo === Number(member),
+            )),
+      )
       const offset = Number(url.searchParams.get('cursor') ?? 0)
       const limit = Number(url.searchParams.get('limit') ?? 50)
-      await route.fulfill({ json: { data: { events: filtered.slice(offset, offset + limit), total: filtered.length, nextCursor: offset + limit < filtered.length ? String(offset + limit) : null }, meta } })
+      await route.fulfill({
+        json: {
+          data: {
+            events: filtered.slice(offset, offset + limit),
+            total: filtered.length,
+            nextCursor: offset + limit < filtered.length ? String(offset + limit) : null,
+          },
+          meta,
+        },
+      })
     } else if (url.pathname === `/api/reports/${activeId}`) {
       await route.fulfill({ json: { data: report, meta } })
     } else await route.abort('blockedbyclient')
@@ -68,33 +161,50 @@ async function openReport(page: Page) {
   await expect(page.getByTestId('event-timeline')).toBeVisible()
 }
 
-const eventItem = (page: Page, id: string) => page.getByTestId('timeline-event').and(page.locator(`[data-event-id="${id}"]`))
-const mapOption = (page: Page, id: string) => page.getByTestId('map-event-option').and(page.locator(`[data-event-id="${id}"]`))
-const marker = (page: Page, id: string) => page.getByTestId('event-marker').and(page.locator(`[data-event-id="${id}"]`))
+const eventItem = (page: Page, id: string) =>
+  page.getByTestId('timeline-event').and(page.locator(`[data-event-id="${id}"]`))
+const mapOption = (page: Page, id: string) =>
+  page.getByTestId('map-event-option').and(page.locator(`[data-event-id="${id}"]`))
+const marker = (page: Page, id: string) =>
+  page.getByTestId('event-marker').and(page.locator(`[data-event-id="${id}"]`))
 const pressed = (locator: Locator) => locator.locator('[aria-pressed="true"]')
 
 async function dispatchWheel(viewport: Locator, init: WheelEventInit) {
   return viewport.evaluate((element, options) => {
     const bounds = element.getBoundingClientRect()
-    const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2, ...options })
+    const event = new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      clientX: bounds.left + bounds.width / 2,
+      clientY: bounds.top + bounds.height / 2,
+      ...options,
+    })
     element.dispatchEvent(event)
     return event.defaultPrevented
   }, init)
 }
 
 async function scrollPositions(viewport: Locator) {
-  return viewport.evaluate(element => {
+  return viewport.evaluate((element) => {
     const ancestors = []
-    for (let parent = element.parentElement; parent; parent = parent.parentElement) ancestors.push(parent.scrollTop)
+    for (let parent = element.parentElement; parent; parent = parent.parentElement)
+      ancestors.push(parent.scrollTop)
     return { page: window.scrollY, ancestors }
   })
 }
 
 async function nextPaint(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  )
 }
 
-test('map pins and timeline select each other, including events sharing a coordinate', async ({ page }) => {
+test('map pins and timeline select each other, including events sharing a coordinate', async ({
+  page,
+}) => {
   await installFixture(page)
   await openReport(page)
   await expect(page.getByTestId('event-marker')).toHaveCount(2)
@@ -111,7 +221,9 @@ test('map pins and timeline select each other, including events sharing a coordi
   await expect(page.getByTestId('selected-actor-marker')).toBeVisible()
 })
 
-test('filter changes clear selection while loading another events page retains it', async ({ page }) => {
+test('filter changes clear selection while loading another events page retains it', async ({
+  page,
+}) => {
   await installFixture(page)
   await openReport(page)
   await eventItem(page, 'knock-first').click()
@@ -131,13 +243,17 @@ test('filter changes clear selection while loading another events page retains i
   await expect(pressed(page.getByTestId('event-timeline'))).toHaveCount(0)
 })
 
-test('zoom, keyboard movement, drag and reset work without changing event selection', async ({ page }) => {
+test('zoom, keyboard movement, drag and reset work without changing event selection', async ({
+  page,
+}) => {
   await installFixture(page)
   await openReport(page)
   await eventItem(page, 'knock-other').click()
   const viewport = page.getByTestId('map-viewport')
   await page.getByRole('button', { name: '지도 확대', exact: true }).click()
-  await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeGreaterThan(1)
+  await expect
+    .poll(async () => Number(await viewport.getAttribute('data-scale')))
+    .toBeGreaterThan(1)
   const beforePan = await viewport.getAttribute('data-pan-x')
   await viewport.focus()
   await viewport.press('ArrowRight')
@@ -148,7 +264,11 @@ test('zoom, keyboard movement, drag and reset work without changing event select
   const beforeDrag = await viewport.getAttribute('data-pan-x')
   await page.mouse.move(bounds!.x + bounds!.width * 0.15, bounds!.y + bounds!.height * 0.15)
   await page.mouse.down()
-  await page.mouse.move(bounds!.x + bounds!.width * 0.15 + 30, bounds!.y + bounds!.height * 0.15 + 24, { steps: 4 })
+  await page.mouse.move(
+    bounds!.x + bounds!.width * 0.15 + 30,
+    bounds!.y + bounds!.height * 0.15 + 24,
+    { steps: 4 },
+  )
   await page.mouse.up()
   await expect.poll(() => viewport.getAttribute('data-pan-x')).not.toBe(beforeDrag)
   await expect(eventItem(page, 'knock-other')).toHaveAttribute('aria-pressed', 'true')
@@ -159,10 +279,12 @@ test('zoom, keyboard movement, drag and reset work without changing event select
   await expect(eventItem(page, 'knock-other')).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('map detail loads only after zoom and keeps the preview until it can display the full image', async ({ page }) => {
+test('map detail loads only after zoom and keeps the preview until it can display the full image', async ({
+  page,
+}) => {
   let detailRequests = 0
   let pendingDetail: Route | undefined
-  await page.route('**/maps/erangel-high.webp', route => {
+  await page.route('**/maps/erangel-high.webp', (route) => {
     detailRequests++
     if (detailRequests === 1) pendingDetail = route
     else return route.continue()
@@ -172,19 +294,30 @@ test('map detail loads only after zoom and keeps the preview until it can displa
   const image = page.getByTestId('event-map-image')
   const viewport = page.getByTestId('map-viewport')
   await expect(image).toHaveAttribute('src', '/maps/erangel.webp')
-  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  await expect
+    .poll(() =>
+      image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth),
+    )
+    .toBe(819)
   expect(detailRequests).toBe(0)
 
   await eventItem(page, 'knock-first').click()
   await page.getByRole('button', { name: '지도 확대', exact: true }).click()
   await expect.poll(() => detailRequests).toBe(1)
   await expect(image).toHaveAttribute('src', '/maps/erangel.webp')
-  expect(await image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  expect(
+    await image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth),
+  ).toBe(819)
   await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
 
   await pendingDetail!.continue()
   await expect(image).toHaveAttribute('src', '/maps/erangel-high.webp', { timeout: 15000 })
-  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth), { timeout: 15000 }).toBe(8192)
+  await expect
+    .poll(
+      () => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth),
+      { timeout: 15000 },
+    )
+    .toBe(8192)
   const loadedRequests = detailRequests
   await page.getByRole('button', { name: '지도 초기화', exact: true }).click()
   await expect(viewport).toHaveAttribute('data-scale', '1')
@@ -195,30 +328,40 @@ test('map detail loads only after zoom and keeps the preview until it can displa
   expect(detailRequests).toBe(loadedRequests)
 })
 
-test('a failed map detail request preserves the decoded preview without a retry loop', async ({ page }) => {
+test('a failed map detail request preserves the decoded preview without a retry loop', async ({
+  page,
+}) => {
   let detailRequests = 0
   const errors: string[] = []
-  page.on('pageerror', error => errors.push(error.message))
-  await page.route('**/maps/erangel-high.webp', async route => {
+  page.on('pageerror', (error) => errors.push(error.message))
+  await page.route('**/maps/erangel-high.webp', async (route) => {
     detailRequests++
     await route.abort('failed')
   })
   await installFixture(page)
   await openReport(page)
   const image = page.getByTestId('event-map-image')
-  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  await expect
+    .poll(() =>
+      image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth),
+    )
+    .toBe(819)
   await page.getByRole('button', { name: '지도 확대', exact: true }).click()
   await expect.poll(() => detailRequests).toBe(1)
   await page.getByRole('button', { name: '지도 초기화', exact: true }).click()
   await page.getByRole('button', { name: '지도 확대', exact: true }).click()
   await nextPaint(page)
   await expect(image).toHaveAttribute('src', '/maps/erangel.webp')
-  expect(await image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(819)
+  expect(
+    await image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth),
+  ).toBe(819)
   expect(detailRequests).toBe(1)
   expect(errors).toEqual([])
 })
 
-test('real wheel zoom keeps the cursor image point, selected event and scroll positions stable', async ({ page }) => {
+test('real wheel zoom keeps the cursor image point, selected event and scroll positions stable', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await installFixture(page)
   await openReport(page)
@@ -230,15 +373,22 @@ test('real wheel zoom keeps the cursor image point, selected event and scroll po
   const bounds = await viewport.boundingBox()
   expect(bounds).not.toBeNull()
   const cursor = { x: bounds!.x + bounds!.width * 0.62, y: bounds!.y + bounds!.height * 0.57 }
-  const imagePoint = () => image.evaluate((element, point) => {
-    const rectangle = element.getBoundingClientRect()
-    return { x: (point.x - rectangle.left) / rectangle.width, y: (point.y - rectangle.top) / rectangle.height, width: rectangle.width }
-  }, cursor)
+  const imagePoint = () =>
+    image.evaluate((element, point) => {
+      const rectangle = element.getBoundingClientRect()
+      return {
+        x: (point.x - rectangle.left) / rectangle.width,
+        y: (point.y - rectangle.top) / rectangle.height,
+        width: rectangle.width,
+      }
+    }, cursor)
   const before = await imagePoint()
   const originalScroll = await scrollPositions(viewport)
   await page.mouse.move(cursor.x, cursor.y)
   await page.mouse.wheel(0, -180)
-  await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeGreaterThan(1)
+  await expect
+    .poll(async () => Number(await viewport.getAttribute('data-scale')))
+    .toBeGreaterThan(1)
   await nextPaint(page)
   const enlargedScale = Number(await viewport.getAttribute('data-scale'))
   const enlarged = await imagePoint()
@@ -248,7 +398,9 @@ test('real wheel zoom keeps the cursor image point, selected event and scroll po
   expect(await scrollPositions(viewport)).toEqual(originalScroll)
 
   await page.mouse.wheel(0, 40)
-  await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeLessThan(enlargedScale)
+  await expect
+    .poll(async () => Number(await viewport.getAttribute('data-scale')))
+    .toBeLessThan(enlargedScale)
   await nextPaint(page)
   const reduced = await imagePoint()
   expect(reduced.x).toBeCloseTo(before.x, 3)
@@ -258,22 +410,33 @@ test('real wheel zoom keeps the cursor image point, selected event and scroll po
   await expect(marker(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('wheel pixel, line and page deltas work and remain consumed at both zoom limits', async ({ page }) => {
+test('wheel pixel, line and page deltas work and remain consumed at both zoom limits', async ({
+  page,
+}) => {
   await installFixture(page)
   await openReport(page)
   const viewport = page.getByTestId('map-viewport')
-  for (const { deltaMode, amount } of [{ deltaMode: 0, amount: 40 }, { deltaMode: 1, amount: 3 }, { deltaMode: 2, amount: 0.1 }]) {
+  for (const { deltaMode, amount } of [
+    { deltaMode: 0, amount: 40 },
+    { deltaMode: 1, amount: 3 },
+    { deltaMode: 2, amount: 0.1 },
+  ]) {
     await viewport.focus()
     await viewport.press('Home')
     expect(await dispatchWheel(viewport, { deltaY: -amount, deltaMode })).toBe(true)
-    await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeGreaterThan(1)
+    await expect
+      .poll(async () => Number(await viewport.getAttribute('data-scale')))
+      .toBeGreaterThan(1)
     const enlarged = Number(await viewport.getAttribute('data-scale'))
     expect(await dispatchWheel(viewport, { deltaY: amount, deltaMode })).toBe(true)
-    await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeLessThan(enlarged)
+    await expect
+      .poll(async () => Number(await viewport.getAttribute('data-scale')))
+      .toBeLessThan(enlarged)
     expect(Number(await viewport.getAttribute('data-scale'))).toBeGreaterThanOrEqual(1)
   }
 
-  for (let index = 0; index < 20; index++) expect(await dispatchWheel(viewport, { deltaY: -10000 })).toBe(true)
+  for (let index = 0; index < 20; index++)
+    expect(await dispatchWheel(viewport, { deltaY: -10000 })).toBe(true)
   await expect(viewport).toHaveAttribute('data-scale', '32')
   await expect(page.getByRole('button', { name: '지도 확대', exact: true })).toBeDisabled()
   expect(await dispatchWheel(viewport, { deltaY: -10000 })).toBe(true)
@@ -286,7 +449,8 @@ test('wheel pixel, line and page deltas work and remain consumed at both zoom li
   await viewport.press('+')
   await expect(viewport).toHaveAttribute('data-scale', '32')
   await expect(page.getByRole('button', { name: '지도 확대', exact: true })).toBeDisabled()
-  for (let index = 0; index < 20; index++) expect(await dispatchWheel(viewport, { deltaY: 10000 })).toBe(true)
+  for (let index = 0; index < 20; index++)
+    expect(await dispatchWheel(viewport, { deltaY: 10000 })).toBe(true)
   await expect(viewport).toHaveAttribute('data-scale', '1')
   expect(await dispatchWheel(viewport, { deltaY: 10000 })).toBe(true)
   await nextPaint(page)
@@ -303,13 +467,22 @@ test('wheel pixel, line and page deltas work and remain consumed at both zoom li
   await expect(viewport).toHaveAttribute('data-scale', '1')
 })
 
-test('browser zoom shortcuts, horizontal wheel and scrolling outside the map remain available', async ({ page }) => {
+test('browser zoom shortcuts, horizontal wheel and scrolling outside the map remain available', async ({
+  page,
+}) => {
   await installFixture(page)
   await openReport(page)
   const viewport = page.getByTestId('map-viewport')
   const initialScale = await viewport.getAttribute('data-scale')
-  const initialPan = { x: await viewport.getAttribute('data-pan-x'), y: await viewport.getAttribute('data-pan-y') }
-  for (const input of [{ deltaY: -80, ctrlKey: true }, { deltaY: -80, metaKey: true }, { deltaX: 80, deltaY: 0 }]) {
+  const initialPan = {
+    x: await viewport.getAttribute('data-pan-x'),
+    y: await viewport.getAttribute('data-pan-y'),
+  }
+  for (const input of [
+    { deltaY: -80, ctrlKey: true },
+    { deltaY: -80, metaKey: true },
+    { deltaX: 80, deltaY: 0 },
+  ]) {
     expect(await dispatchWheel(viewport, input)).toBe(false)
   }
   await nextPaint(page)
@@ -325,7 +498,9 @@ test('browser zoom shortcuts, horizontal wheel and scrolling outside the map rem
   await expect(viewport).toHaveAttribute('data-scale', initialScale!)
 })
 
-test('events without usable locations remain readable and selectable in the timeline', async ({ page }) => {
+test('events without usable locations remain readable and selectable in the timeline', async ({
+  page,
+}) => {
   const invalid = fixtureEvent('invalid-location', 'kill', 45, 900000, 900000)
   invalid.actor!.location = null
   await installFixture(page, { events: [...majorEvents, invalid] })
@@ -342,10 +517,22 @@ test('events without usable locations remain readable and selectable in the time
   await expect(page.getByTestId('event-timeline')).toContainText('MapOpponent')
 })
 
-test('more than 100 pin groups and more than six overlapping events remain individually reachable, including map boundaries', async ({ page }) => {
-  const grid = Array.from({ length: 200 }, (_, index) => fixtureEvent(`grid-${index}`, 'kill', index + 1, (index % 20) / 19 * 816000, Math.floor(index / 20) / 9 * 816000))
+test('more than 100 pin groups and more than six overlapping events remain individually reachable, including map boundaries', async ({
+  page,
+}) => {
+  const grid = Array.from({ length: 200 }, (_, index) =>
+    fixtureEvent(
+      `grid-${index}`,
+      'kill',
+      index + 1,
+      ((index % 20) / 19) * 816000,
+      (Math.floor(index / 20) / 9) * 816000,
+    ),
+  )
   const overlapPoint = grid[21]!.target!.location!
-  const overlaps = Array.from({ length: 7 }, (_, index) => fixtureEvent(`overlap-${index}`, 'kill', 201 + index, overlapPoint.x, overlapPoint.y))
+  const overlaps = Array.from({ length: 7 }, (_, index) =>
+    fixtureEvent(`overlap-${index}`, 'kill', 201 + index, overlapPoint.x, overlapPoint.y),
+  )
   await installFixture(page, { events: [...grid, ...overlaps] })
   await openReport(page)
   for (const loaded of [100, 150, 200, 207]) {
@@ -355,7 +542,12 @@ test('more than 100 pin groups and more than six overlapping events remain indiv
   await expect(page.getByTestId('timeline-event')).toHaveCount(207)
   await expect(page.getByTestId('event-marker')).toHaveCount(100)
   await expect(marker(page, 'grid-0')).toBeVisible()
-  expect(await marker(page, 'grid-0').evaluate(element => ({ x: (element as HTMLElement).style.left, y: (element as HTMLElement).style.top }))).toEqual({ x: '0%', y: '0%' })
+  expect(
+    await marker(page, 'grid-0').evaluate((element) => ({
+      x: (element as HTMLElement).style.left,
+      y: (element as HTMLElement).style.top,
+    })),
+  ).toEqual({ x: '0%', y: '0%' })
 
   await marker(page, 'grid-21').click()
   await expect(page.getByTestId('map-event-option')).toHaveCount(6)
@@ -369,7 +561,12 @@ test('more than 100 pin groups and more than six overlapping events remain indiv
   await expect(page.getByTestId('event-marker')).toHaveCount(100)
   await expect(marker(page, 'grid-0')).toHaveCount(0)
   await expect(marker(page, 'grid-199')).toBeVisible()
-  expect(await marker(page, 'grid-199').evaluate(element => ({ x: (element as HTMLElement).style.left, y: (element as HTMLElement).style.top }))).toEqual({ x: '100%', y: '100%' })
+  expect(
+    await marker(page, 'grid-199').evaluate((element) => ({
+      x: (element as HTMLElement).style.left,
+      y: (element as HTMLElement).style.top,
+    })),
+  ).toEqual({ x: '100%', y: '100%' })
   await eventItem(page, 'grid-199').click()
   await expect(marker(page, 'grid-199')).toHaveAttribute('aria-pressed', 'true')
   await eventItem(page, 'grid-0').click()
@@ -385,34 +582,55 @@ for (const { mapName, slug, extent } of [
   { mapName: 'Chimera_Main', slug: 'paramo', extent: 306000 },
   { mapName: 'Heaven_Main', slug: 'haven', extent: 102000 },
 ]) {
-  test(`${slug} decodes its official preview and detail while keeping in-bounds events selectable`, async ({ page }) => {
+  test(`${slug} decodes its official preview and detail while keeping in-bounds events selectable`, async ({
+    page,
+  }) => {
     let detailRequests = 0
-    page.on('request', request => { if (new URL(request.url()).pathname === `/maps/${slug}-high.webp`) detailRequests++ })
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === `/maps/${slug}-high.webp`) detailRequests++
+    })
     const event = fixtureEvent('map-center', 'knock', 10, extent * 0.25, extent * 0.5)
     event.actor!.location = { x: extent * 0.2, y: extent * 0.4, z: 0 }
     await installFixture(page, { mapName, events: [event] })
     await openReport(page)
     const image = page.getByTestId('event-map-image')
     await expect(image).toHaveAttribute('src', `/maps/${slug}.webp`)
-    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth)).toBe(1024)
+    await expect
+      .poll(() =>
+        image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth),
+      )
+      .toBe(1024)
     expect(detailRequests).toBe(0)
     await expect(page.getByTestId('map-unsupported')).toHaveCount(0)
     await expect(page.getByTestId('event-marker')).toHaveCount(1)
-    expect(await marker(page, event.id).evaluate(element => ({ x: (element as HTMLElement).style.left, y: (element as HTMLElement).style.top }))).toEqual({ x: '25%', y: '50%' })
+    expect(
+      await marker(page, event.id).evaluate((element) => ({
+        x: (element as HTMLElement).style.left,
+        y: (element as HTMLElement).style.top,
+      })),
+    ).toEqual({ x: '25%', y: '50%' })
     await marker(page, event.id).click()
     await expect(eventItem(page, event.id)).toHaveAttribute('aria-pressed', 'true')
 
     await page.getByRole('button', { name: '지도 확대', exact: true }).click()
     await expect.poll(() => detailRequests).toBeGreaterThan(0)
     await expect(image).toHaveAttribute('src', `/maps/${slug}-high.webp`, { timeout: 15000 })
-    await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth), { timeout: 15000 }).toBe(8192)
+    await expect
+      .poll(
+        () =>
+          image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth),
+        { timeout: 15000 },
+      )
+      .toBe(8192)
     await expect(eventItem(page, event.id)).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('selected-target-marker')).toBeVisible()
     await expect(page.getByTestId('selected-actor-marker')).toBeVisible()
   })
 }
 
-test('an unrecognized map keeps the timeline usable when there is no map image', async ({ page }) => {
+test('an unrecognized map keeps the timeline usable when there is no map image', async ({
+  page,
+}) => {
   await installFixture(page, { mapName: 'Unrecognized_Map' })
   await openReport(page)
   await expect(page.getByTestId('event-map-image')).toHaveCount(0)
@@ -423,12 +641,18 @@ test('an unrecognized map keeps the timeline usable when there is no map image',
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('Rondo shows its map and timeline without projecting unverified coordinates', async ({ page }) => {
+test('Rondo shows its map and timeline without projecting unverified coordinates', async ({
+  page,
+}) => {
   await installFixture(page, { mapName: 'Neon_Main' })
   await openReport(page)
   const image = page.getByTestId('event-map-image')
   await expect(image).toHaveAttribute('src', '/maps/rondo.webp')
-  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true)
+  await expect
+    .poll(() =>
+      image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0),
+    )
+    .toBe(true)
   await expect(page.getByTestId('map-unsupported')).toBeVisible()
   await expect(page.getByTestId('event-marker')).toHaveCount(0)
   await expect(page.getByTestId('timeline-event')).toHaveCount(4)
@@ -438,31 +662,52 @@ test('Rondo shows its map and timeline without projecting unverified coordinates
   await expect(page.getByTestId('selected-actor-marker')).toHaveCount(0)
 })
 
-test('a legacy report upgrades only after a click and navigates to a separate report URL', async ({ page }) => {
-  const requests = await installFixture(page, { analysisVersion: '1', events: majorEvents.map(event => ({ ...event, actor: event.actor ? { ...event.actor, location: undefined } : null, target: event.target ? { ...event.target, location: undefined } : null })) })
+test('a legacy report upgrades only after a click and navigates to a separate report URL', async ({
+  page,
+}) => {
+  const requests = await installFixture(page, {
+    analysisVersion: '1',
+    events: majorEvents.map((event) => ({
+      ...event,
+      actor: event.actor ? { ...event.actor, location: undefined } : null,
+      target: event.target ? { ...event.target, location: undefined } : null,
+    })),
+  })
   await openReport(page)
-  await expect(page.getByText('이전에 만든 리포트에는 위치가 저장되어 있지 않아요.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText('이전에 만든 리포트에는 위치가 저장되어 있지 않아요.', { exact: true }),
+  ).toBeVisible()
   expect(requests.upgrades()).toBe(0)
   await page.getByRole('button', { name: '위치 포함 리포트 열기', exact: true }).click()
   await expect(page).toHaveURL(new RegExp(`/reports/${upgradedId}$`))
   expect(requests.upgrades()).toBe(1)
-  await expect(page.getByText('이전에 만든 리포트에는 위치가 저장되어 있지 않아요.', { exact: true })).toHaveCount(0)
+  await expect(
+    page.getByText('이전에 만든 리포트에는 위치가 저장되어 있지 않아요.', { exact: true }),
+  ).toHaveCount(0)
   await expect(page.getByTestId('event-timeline')).toBeVisible()
 })
 
 for (const width of [360, 768, 1440]) {
   for (const theme of ['dark', 'light']) {
-    test(`event map ${width}px ${theme} has decoded imagery and no page overflow`, async ({ page }) => {
+    test(`event map ${width}px ${theme} has decoded imagery and no page overflow`, async ({
+      page,
+    }) => {
       const errors: string[] = []
-      page.on('pageerror', error => errors.push(error.message))
+      page.on('pageerror', (error) => errors.push(error.message))
       await page.setViewportSize({ width, height: 960 })
-      await page.addInitScript(value => localStorage.setItem('nuxt-color-mode', value), theme)
+      await page.addInitScript((value) => localStorage.setItem('nuxt-color-mode', value), theme)
       await installFixture(page)
       await openReport(page)
       await expect(page.locator('html')).toHaveClass(new RegExp(theme))
       const image = page.getByTestId('event-map-image')
       await expect(image).toBeVisible()
-      await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true)
+      await expect
+        .poll(() =>
+          image.evaluate(
+            (element: HTMLImageElement) => element.complete && element.naturalWidth > 0,
+          ),
+        )
+        .toBe(true)
       await eventItem(page, 'knock-first').click()
       await expect(page.getByTestId('selected-target-marker')).toBeVisible()
       if (width === 360) {
@@ -475,7 +720,9 @@ for (const width of [360, 768, 1440]) {
         await expect(eventItem(page, 'knock-first')).toBeInViewport()
         await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
       }
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      )
       for (const label of ['지도 확대', '지도 축소', '지도 초기화']) {
         const box = await page.getByRole('button', { name: label, exact: true }).boundingBox()
         expect(box?.height).toBeGreaterThanOrEqual(44)

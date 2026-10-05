@@ -9,7 +9,9 @@ try {
   await migrate(drizzle(client), { migrationsFolder: './server/db/migrations' })
   console.log('Database migrations complete.')
 } catch {
-  console.error('Database migration failed. Check connectivity and migration files; connection details omitted.')
+  console.error(
+    'Database migration failed. Check connectivity and migration files; connection details omitted.',
+  )
   process.exitCode = 1
 } finally {
   await client.end()

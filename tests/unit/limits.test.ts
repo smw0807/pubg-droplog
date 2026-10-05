@@ -3,7 +3,9 @@ import { ConcurrencyLimiter, SlidingWindowLimiter, withTimeout } from '../../ser
 
 function gate() {
   let release = () => {}
-  const promise = new Promise<void>(resolve => { release = resolve })
+  const promise = new Promise<void>((resolve) => {
+    release = resolve
+  })
   return { promise, release }
 }
 
@@ -14,10 +16,14 @@ describe('sliding window', () => {
     let now = 0
     const limiter = new SlidingWindowLimiter(10, 60_000, () => now)
     for (let index = 0; index < 10; index++) limiter.consume('key-one')
-    expect(() => limiter.consume('key-one')).toThrow(expect.objectContaining({ status: 429, retryAfterSeconds: 60 }))
+    expect(() => limiter.consume('key-one')).toThrow(
+      expect.objectContaining({ status: 429, retryAfterSeconds: 60 }),
+    )
     expect(() => limiter.consume('key-two')).not.toThrow()
     now = 59_001
-    expect(() => limiter.consume('key-one')).toThrow(expect.objectContaining({ retryAfterSeconds: 1 }))
+    expect(() => limiter.consume('key-one')).toThrow(
+      expect.objectContaining({ retryAfterSeconds: 1 }),
+    )
     now = 60_000
     expect(() => limiter.consume('key-one')).not.toThrow()
   })
@@ -39,10 +45,12 @@ describe('bounded concurrency', () => {
     const limiter = new ConcurrencyLimiter(3, 20)
     const blocked = gate()
     let maxActive = 0
-    const runs = Array.from({ length: 23 }, () => limiter.run(async () => {
-      maxActive = Math.max(maxActive, limiter.activeCount)
-      await blocked.promise
-    }))
+    const runs = Array.from({ length: 23 }, () =>
+      limiter.run(async () => {
+        maxActive = Math.max(maxActive, limiter.activeCount)
+        await blocked.promise
+      }),
+    )
     expect(limiter.activeCount).toBe(3)
     expect(limiter.queuedCount).toBe(20)
     await expect(limiter.run(async () => {})).rejects.toMatchObject({ status: 429 })
@@ -56,7 +64,10 @@ describe('bounded concurrency', () => {
   it('removes cancelled queued work and releases slots after failures', async () => {
     const limiter = new ConcurrencyLimiter(1, 1)
     const blocked = gate()
-    const first = limiter.run(async () => { await blocked.promise; throw new Error('failure') })
+    const first = limiter.run(async () => {
+      await blocked.promise
+      throw new Error('failure')
+    })
     const controller = new AbortController()
     const neverRun = vi.fn(async () => {})
     const queued = limiter.run(neverRun, controller.signal)
@@ -74,9 +85,22 @@ describe('bounded concurrency', () => {
     vi.useFakeTimers()
     const limiter = new ConcurrencyLimiter(1)
     let aborted = false
-    const operation = limiter.run(() => withTimeout(signal => new Promise<void>((_resolve, reject) => {
-      signal.addEventListener('abort', () => { aborted = true; reject(signal.reason) }, { once: true })
-    }), 10_000))
+    const operation = limiter.run(() =>
+      withTimeout(
+        (signal) =>
+          new Promise<void>((_resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                aborted = true
+                reject(signal.reason)
+              },
+              { once: true },
+            )
+          }),
+        10_000,
+      ),
+    )
     const rejection = expect(operation).rejects.toMatchObject({ code: 'UPSTREAM_TIMEOUT' })
     await vi.advanceTimersByTimeAsync(10_000)
     await rejection

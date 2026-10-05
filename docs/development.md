@@ -4,12 +4,12 @@
 
 ## 환경변수
 
-| 변수 | 설명 |
-| --- | --- |
-| `NUXT_DATA_MODE` | `demo` 또는 `live`. 기본 `demo`; 다른 값은 설정 오류 |
-| `NUXT_PUBG_API_KEY` | live 전용 PUBG API 키. 비공개 서버 설정 |
-| `NUXT_DATABASE_URL` | PostgreSQL 연결 문자열. 비공개 서버 설정 |
-| `PORT`, `HOST` | 생산 Nitro 서버의 포트와 리슨 주소 |
+| 변수                | 설명                                                 |
+| ------------------- | ---------------------------------------------------- |
+| `NUXT_DATA_MODE`    | `demo` 또는 `live`. 기본 `demo`; 다른 값은 설정 오류 |
+| `NUXT_PUBG_API_KEY` | live 전용 PUBG API 키. 비공개 서버 설정              |
+| `NUXT_DATABASE_URL` | PostgreSQL 연결 문자열. 비공개 서버 설정             |
+| `PORT`, `HOST`      | 생산 Nitro 서버의 포트와 리슨 주소                   |
 
 설정 이름은 [nuxt.config.ts](../nuxt.config.ts), 로컬 예시는 [.env.example](../.env.example), DB는 [compose.yaml](../compose.yaml)을 따릅니다. `.env`와 실제 인증정보는 Git·로그·문서에 넣지 않습니다. `runtimeConfig.public`에는 비밀값을 두지 않습니다.
 
@@ -40,11 +40,32 @@ curl -fsS http://127.0.0.1:3100/api/status
 - 예약 샘플은 읽기 전용입니다. DB에 저장한 리포트는 서버 재시작·모드 변경 후에도 원래 `source`와 URL을 유지합니다.
 - live의 키 누락·인증·호출 제한 오류는 실패로 표시합니다. 합성 결과로 대신 성공 처리하지 않습니다.
 
+## 코드 스타일
+
+ESLint는 Nuxt·Vue·TypeScript 코드 오류를 검사하고, Prettier는 소스와 문서를 정렬합니다. [Nuxt ESLint 공식 안내](https://eslint.nuxt.com/packages/module#prettier)에 따라 함께 사용하며, `eslint-config-prettier`를 ESLint 설정 마지막에 적용해 포맷 규칙 충돌을 막습니다.
+
+- 들여쓰기는 공백 2칸, 줄 길이 기준은 100자입니다. 긴 문자열과 클래스 이름은 100자를 넘을 수 있습니다.
+- JavaScript·TypeScript는 작은따옴표를 사용하고 세미콜론을 생략합니다.
+- Vue 템플릿 속성은 한 줄에 하나씩 배치합니다.
+- Vue 파일에는 `htmlWhitespaceSensitivity: "ignore"`를 적용해 태그와 닫는 괄호가 어색하게 분리되지 않도록 합니다. 인라인 텍스트에서 반드시 필요한 공백은 문자열이나 `{{ ' ' }}`로 명시합니다.
+- `.prettierrc.json`은 Prettier 규칙, `.editorconfig`는 기본 들여쓰기·줄바꿈을 정의합니다.
+- 생성물(`.nuxt`, `.output`, 테스트 결과), 잠금 파일, 생성된 DB 마이그레이션, 정적 이미지와 `.env` 파일은 `.prettierignore`로 제외합니다.
+
+```sh
+pnpm format        # 전체 소스·문서 정렬
+pnpm format:check  # 파일 변경 없이 포맷 검사
+pnpm lint          # 코드 오류 검사
+pnpm lint:fix      # 자동 수정 가능한 ESLint 문제 수정
+```
+
+VS Code에서 권장 확장 프로그램인 ESLint, Prettier, Vue - Official을 설치하면 `.vscode/settings.json`에 따라 저장 시 포맷팅과 ESLint 자동 수정이 적용됩니다. 다른 편집기에서는 프로젝트에 설치된 Prettier와 위 설정 파일을 사용하세요. 첫 설치 시 `pnpm install`의 `postinstall`이 `nuxt prepare`를 실행하여 ESLint가 사용하는 Nuxt 설정을 생성합니다.
+
 ## 검증
 
 ### 정적 검사와 단위 테스트
 
 ```sh
+pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test

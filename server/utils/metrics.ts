@@ -9,7 +9,13 @@ export interface RequestMetrics {
   reasons: string[]
 }
 const context = new AsyncLocalStorage<RequestMetrics>()
-const emptyMetrics = (): RequestMetrics => ({ upstreamCalls: 0, cacheHits: 0, source: null, analysisVersion: null, reasons: [] })
+const emptyMetrics = (): RequestMetrics => ({
+  upstreamCalls: 0,
+  cacheHits: 0,
+  source: null,
+  analysisVersion: null,
+  reasons: [],
+})
 
 export function runWithMetrics<T>(operation: () => T): T {
   return context.run(emptyMetrics(), operation)
@@ -37,5 +43,6 @@ export function recordAnalysisVersion(version: string): void {
 /** Accept service-owned codes only; never put messages, URLs or payloads in logs. */
 export function recordReason(code: string): void {
   const metrics = context.getStore()
-  if (metrics && /^[A-Z][A-Z0-9_]{0,63}$/.test(code) && !metrics.reasons.includes(code)) metrics.reasons.push(code)
+  if (metrics && /^[A-Z][A-Z0-9_]{0,63}$/.test(code) && !metrics.reasons.includes(code))
+    metrics.reasons.push(code)
 }

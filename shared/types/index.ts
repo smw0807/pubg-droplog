@@ -21,6 +21,17 @@ export type MatchesData = z.infer<typeof schemas.matchesDataSchema>
 export type MatchesMeta = z.infer<typeof schemas.matchesMetaSchema>
 export type EventsData = z.infer<typeof schemas.eventsDataSchema>
 export type CreateReportData = z.infer<typeof schemas.createReportDataSchema>
-export interface ApiMeta { source: DataSource; fetchedAt?: string; quality?: Quality; revision?: number }
-export interface ApiResponse<T, M = ApiMeta> { data: T; meta: M }
-export interface ApiFailure { error: { code: string; message: string; retryable: boolean; retryAfterSeconds?: number }; requestId: string }
+export interface ApiMeta {
+  source: DataSource
+  fetchedAt?: string
+  quality?: Quality
+  revision?: number
+}
+export interface ApiResponse<T, M = ApiMeta> {
+  data: T
+  meta: M
+}
+export interface ApiFailure {
+  error: { code: string; message: string; retryable: boolean; retryAfterSeconds?: number }
+  requestId: string
+}

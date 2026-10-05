@@ -3,7 +3,11 @@ import { ApiError, abortError } from './errors'
 /** Sliding window, keyed by API key or trusted client identifier; never queues. */
 export class SlidingWindowLimiter {
   private readonly buckets = new Map<string, number[]>()
-  constructor(private readonly limit: number, private readonly windowMs = 60_000, private readonly now = Date.now) {}
+  constructor(
+    private readonly limit: number,
+    private readonly windowMs = 60_000,
+    private readonly now = Date.now,
+  ) {}
 
   consume(key: string): void {
     const now = this.now()
@@ -11,10 +15,16 @@ export class SlidingWindowLimiter {
     for (const [bucketKey, times] of this.buckets) {
       if ((times.at(-1) ?? 0) <= now - this.windowMs) this.buckets.delete(bucketKey)
     }
-    const times = (this.buckets.get(key) ?? []).filter(time => time > now - this.windowMs)
+    const times = (this.buckets.get(key) ?? []).filter((time) => time > now - this.windowMs)
     if (times.length >= this.limit) {
       const retryAfter = Math.max(1, Math.ceil(((times[0] ?? now) + this.windowMs - now) / 1000))
-      throw new ApiError('RATE_LIMITED', 429, '요청이 많습니다. 잠시 후 다시 시도해 주세요.', true, retryAfter)
+      throw new ApiError(
+        'RATE_LIMITED',
+        429,
+        '요청이 많습니다. 잠시 후 다시 시도해 주세요.',
+        true,
+        retryAfter,
+      )
     }
     times.push(now)
     this.buckets.set(key, times)
@@ -32,9 +42,16 @@ interface Waiter {
 export class ConcurrencyLimiter {
   private active = 0
   private readonly queue: Waiter[] = []
-  constructor(private readonly maxConcurrent: number, private readonly maxQueued = 0) {}
-  get activeCount(): number { return this.active }
-  get queuedCount(): number { return this.queue.length }
+  constructor(
+    private readonly maxConcurrent: number,
+    private readonly maxQueued = 0,
+  ) {}
+  get activeCount(): number {
+    return this.active
+  }
+  get queuedCount(): number {
+    return this.queue.length
+  }
 
   private releaseSlot(): void {
     this.active--
@@ -61,10 +78,21 @@ export class ConcurrencyLimiter {
       this.active++
       return Promise.resolve(this.releaseOnce())
     }
-    if (this.queue.length >= this.maxQueued) return Promise.reject(new ApiError('SERVER_BUSY', 429, '다른 경기를 처리 중입니다. 잠시 후 다시 시도해 주세요.', true, 10))
+    if (this.queue.length >= this.maxQueued)
+      return Promise.reject(
+        new ApiError(
+          'SERVER_BUSY',
+          429,
+          '다른 경기를 처리 중입니다. 잠시 후 다시 시도해 주세요.',
+          true,
+          10,
+        ),
+      )
     return new Promise((resolve, reject) => {
       const waiter: Waiter = {
-        resolve, reject, signal,
+        resolve,
+        reject,
+        signal,
         onAbort: () => {
           const index = this.queue.indexOf(waiter)
           if (index >= 0) this.queue.splice(index, 1)
@@ -88,12 +116,22 @@ export class ConcurrencyLimiter {
 }
 
 /** Cancels the actual transport. Operations must pass this signal to I/O. */
-export async function withTimeout<T>(operation: (signal: AbortSignal) => Promise<T>, timeoutMs = 10_000, parentSignal?: AbortSignal): Promise<T> {
+export async function withTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = 10_000,
+  parentSignal?: AbortSignal,
+): Promise<T> {
   if (parentSignal?.aborted) throw abortError(parentSignal)
   const controller = new AbortController()
   const onParentAbort = () => controller.abort(abortError(parentSignal))
   parentSignal?.addEventListener('abort', onParentAbort, { once: true })
-  const timer = setTimeout(() => controller.abort(new ApiError('UPSTREAM_TIMEOUT', 504, '데이터 응답 시간이 초과되었습니다.', true)), timeoutMs)
+  const timer = setTimeout(
+    () =>
+      controller.abort(
+        new ApiError('UPSTREAM_TIMEOUT', 504, '데이터 응답 시간이 초과되었습니다.', true),
+      ),
+    timeoutMs,
+  )
   timer.unref?.()
   try {
     const result = await operation(controller.signal)

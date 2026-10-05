@@ -2,18 +2,18 @@
 
 2026-10-05 [PUBG 공식 API 에셋 저장소](https://github.com/pubg/api-assets/tree/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps)의 지명이 포함된 `*_Main_High_Res.png`를 내려받았다. 10개 원본 모두 **8192×8192**이며, 확대용 이미지는 업스케일·자르기·회전 없이 WebP 품질 90으로 변환했다. 새로 추가한 사녹·비켄디·카라킨·데스턴·파라모·헤이븐은 같은 원본을 1024×1024, WebP 품질 85로 축소한 미리보기도 함께 생성했다.
 
-| 맵 | 공식 원본 다운로드 | 확대용 로컬 파일 |
-| --- | --- | --- |
+| 맵     | 공식 원본 다운로드                                                                                                                                                    | 확대용 로컬 파일                |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
 | 에란겔 | [Erangel_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Erangel_Main_High_Res.png) | `public/maps/erangel-high.webp` |
 | 미라마 | [Miramar_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Miramar_Main_High_Res.png) | `public/maps/miramar-high.webp` |
-| 태이고 | [Taego_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Taego_Main_High_Res.png) | `public/maps/taego-high.webp` |
-| 론도 | [Rondo_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Rondo_Main_High_Res.png) | `public/maps/rondo-high.webp` |
-| 사녹 | [Sanhok_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Sanhok_Main_High_Res.png) | `public/maps/sanhok-high.webp` |
+| 태이고 | [Taego_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Taego_Main_High_Res.png)     | `public/maps/taego-high.webp`   |
+| 론도   | [Rondo_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Rondo_Main_High_Res.png)     | `public/maps/rondo-high.webp`   |
+| 사녹   | [Sanhok_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Sanhok_Main_High_Res.png)   | `public/maps/sanhok-high.webp`  |
 | 비켄디 | [Vikendi_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Vikendi_Main_High_Res.png) | `public/maps/vikendi-high.webp` |
 | 카라킨 | [Karakin_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Karakin_Main_High_Res.png) | `public/maps/karakin-high.webp` |
-| 데스턴 | [Deston_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Deston_Main_High_Res.png) | `public/maps/deston-high.webp` |
-| 파라모 | [Paramo_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Paramo_Main_High_Res.png) | `public/maps/paramo-high.webp` |
-| 헤이븐 | [Haven_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Haven_Main_High_Res.png) | `public/maps/haven-high.webp` |
+| 데스턴 | [Deston_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Deston_Main_High_Res.png)   | `public/maps/deston-high.webp`  |
+| 파라모 | [Paramo_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Paramo_Main_High_Res.png)   | `public/maps/paramo-high.webp`  |
+| 헤이븐 | [Haven_Main_High_Res.png](https://media.githubusercontent.com/media/pubg/api-assets/32b13b51128b8d8909ae5e77f3b833e01230b24d/Assets/Maps/Haven_Main_High_Res.png)     | `public/maps/haven-high.webp`   |
 
 출처 커밋: `32b13b51128b8d8909ae5e77f3b833e01230b24d`. Git LFS 원본이므로 `raw.githubusercontent.com`의 포인터 파일 대신 위 `media.githubusercontent.com` 주소를 사용한다. PNG 원본은 임시 작업 폴더에서 처리하며 저장소에는 변환한 WebP만 포함한다. 이용 조건은 원본 저장소에서 안내하는 [PUBG API Terms of Use](https://developer.pubg.com/tos)와 [Player-created Content](https://www.pubg.com/player-created-content/)를 따른다.
 
@@ -34,18 +34,18 @@ cwebp -resize 1024 1024 -q 85 -m 6 -mt /tmp/Sanhok_Main_High_Res.png -o public/m
 
 다운로드한 PNG의 SHA-256을 공식 Git LFS 포인터와 대조했다.
 
-| 원본 | SHA-256 |
-| --- | --- |
+| 원본    | SHA-256                                                            |
+| ------- | ------------------------------------------------------------------ |
 | Erangel | `5dc33eac3af60b375cb0e29b7648132dbaa164c75c0310368e8ae585bcbecc45` |
 | Miramar | `7d8a9878b699c7eb51fecda2bc57b9e75e2120c3117b9c9e95b03dd8ab5a42a9` |
-| Taego | `cd6295ad924cff220bec5680a0f85f2e29483c0d9d1dd409c9f8f4d52d5308d2` |
-| Rondo | `d1a7c9fe2639bc3aeca2add03feddfd4bcd48fedf28f2ca3333ad2a4bad2712e` |
-| Sanhok | `fa28839b56a2180cae7d4339107dd11bafc6e22c9048f650263852a04cc8c2f0` |
+| Taego   | `cd6295ad924cff220bec5680a0f85f2e29483c0d9d1dd409c9f8f4d52d5308d2` |
+| Rondo   | `d1a7c9fe2639bc3aeca2add03feddfd4bcd48fedf28f2ca3333ad2a4bad2712e` |
+| Sanhok  | `fa28839b56a2180cae7d4339107dd11bafc6e22c9048f650263852a04cc8c2f0` |
 | Vikendi | `fb8a4e7fe0daac84aabb54689cb2cf4cca284294ae357fe8dc384a0f0fd7167d` |
 | Karakin | `e18b0d4b0d5102038c52ffb7ac9a67e38314bb10edbf30f23ad55799a376dad9` |
-| Deston | `e6d91373539137377580e3d7f6b8d4db834f54c5b27863fcf985c2b0bcf3993a` |
-| Paramo | `a177fa69daec0be022d77698948f421b7fd063fee27fa9d63cb3342b2cb933fd` |
-| Haven | `66a0449dc66d08cede53ad91f86e81b66d9ef4ea21fe020e5f5e579b530cc906` |
+| Deston  | `e6d91373539137377580e3d7f6b8d4db834f54c5b27863fcf985c2b0bcf3993a` |
+| Paramo  | `a177fa69daec0be022d77698948f421b7fd063fee27fa9d63cb3342b2cb933fd` |
+| Haven   | `66a0449dc66d08cede53ad91f86e81b66d9ef4ea21fe020e5f5e579b530cc906` |
 
 ## 표시 방식과 범위
 
