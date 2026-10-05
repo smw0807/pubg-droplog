@@ -73,6 +73,27 @@ const mapOption = (page: Page, id: string) => page.getByTestId('map-event-option
 const marker = (page: Page, id: string) => page.getByTestId('event-marker').and(page.locator(`[data-event-id="${id}"]`))
 const pressed = (locator: Locator) => locator.locator('[aria-pressed="true"]')
 
+async function dispatchWheel(viewport: Locator, init: WheelEventInit) {
+  return viewport.evaluate((element, options) => {
+    const bounds = element.getBoundingClientRect()
+    const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2, ...options })
+    element.dispatchEvent(event)
+    return event.defaultPrevented
+  }, init)
+}
+
+async function scrollPositions(viewport: Locator) {
+  return viewport.evaluate(element => {
+    const ancestors = []
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) ancestors.push(parent.scrollTop)
+    return { page: window.scrollY, ancestors }
+  })
+}
+
+async function nextPaint(page: Page) {
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+}
+
 test('map pins and timeline select each other, including events sharing a coordinate', async ({ page }) => {
   await installFixture(page)
   await openReport(page)
@@ -136,6 +157,105 @@ test('zoom, keyboard movement, drag and reset work without changing event select
   await expect(viewport).toHaveAttribute('data-pan-x', '0')
   await expect(viewport).toHaveAttribute('data-pan-y', '0')
   await expect(eventItem(page, 'knock-other')).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('real wheel zoom keeps the cursor image point, selected event and scroll positions stable', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await installFixture(page)
+  await openReport(page)
+  await eventItem(page, 'knock-first').click()
+  const viewport = page.getByTestId('map-viewport')
+  const image = page.getByTestId('event-map-image')
+  await viewport.scrollIntoViewIfNeeded()
+  await nextPaint(page)
+  const bounds = await viewport.boundingBox()
+  expect(bounds).not.toBeNull()
+  const cursor = { x: bounds!.x + bounds!.width * 0.62, y: bounds!.y + bounds!.height * 0.57 }
+  const imagePoint = () => image.evaluate((element, point) => {
+    const rectangle = element.getBoundingClientRect()
+    return { x: (point.x - rectangle.left) / rectangle.width, y: (point.y - rectangle.top) / rectangle.height, width: rectangle.width }
+  }, cursor)
+  const before = await imagePoint()
+  const originalScroll = await scrollPositions(viewport)
+  await page.mouse.move(cursor.x, cursor.y)
+  await page.mouse.wheel(0, -180)
+  await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeGreaterThan(1)
+  await nextPaint(page)
+  const enlargedScale = Number(await viewport.getAttribute('data-scale'))
+  const enlarged = await imagePoint()
+  expect(enlarged.x).toBeCloseTo(before.x, 3)
+  expect(enlarged.y).toBeCloseTo(before.y, 3)
+  expect(enlarged.width / before.width).toBeCloseTo(enlargedScale, 3)
+  expect(await scrollPositions(viewport)).toEqual(originalScroll)
+
+  await page.mouse.wheel(0, 40)
+  await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeLessThan(enlargedScale)
+  await nextPaint(page)
+  const reduced = await imagePoint()
+  expect(reduced.x).toBeCloseTo(before.x, 3)
+  expect(reduced.y).toBeCloseTo(before.y, 3)
+  expect(await scrollPositions(viewport)).toEqual(originalScroll)
+  await expect(eventItem(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
+  await expect(marker(page, 'knock-first')).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('wheel pixel, line and page deltas work and remain consumed at both zoom limits', async ({ page }) => {
+  await installFixture(page)
+  await openReport(page)
+  const viewport = page.getByTestId('map-viewport')
+  for (const { deltaMode, amount } of [{ deltaMode: 0, amount: 40 }, { deltaMode: 1, amount: 3 }, { deltaMode: 2, amount: 0.1 }]) {
+    await viewport.focus()
+    await viewport.press('Home')
+    expect(await dispatchWheel(viewport, { deltaY: -amount, deltaMode })).toBe(true)
+    await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeGreaterThan(1)
+    const enlarged = Number(await viewport.getAttribute('data-scale'))
+    expect(await dispatchWheel(viewport, { deltaY: amount, deltaMode })).toBe(true)
+    await expect.poll(async () => Number(await viewport.getAttribute('data-scale'))).toBeLessThan(enlarged)
+    expect(Number(await viewport.getAttribute('data-scale'))).toBeGreaterThanOrEqual(1)
+  }
+
+  for (let index = 0; index < 12; index++) expect(await dispatchWheel(viewport, { deltaY: -10000 })).toBe(true)
+  await expect(viewport).toHaveAttribute('data-scale', '4')
+  expect(await dispatchWheel(viewport, { deltaY: -10000 })).toBe(true)
+  await nextPaint(page)
+  await expect(viewport).toHaveAttribute('data-scale', '4')
+  for (let index = 0; index < 12; index++) expect(await dispatchWheel(viewport, { deltaY: 10000 })).toBe(true)
+  await expect(viewport).toHaveAttribute('data-scale', '1')
+  expect(await dispatchWheel(viewport, { deltaY: 10000 })).toBe(true)
+  await nextPaint(page)
+  await expect(viewport).toHaveAttribute('data-scale', '1')
+
+  await viewport.scrollIntoViewIfNeeded()
+  const bounds = await viewport.boundingBox()
+  expect(bounds).not.toBeNull()
+  await page.mouse.move(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2)
+  const originalScroll = await scrollPositions(viewport)
+  await page.mouse.wheel(0, 400)
+  await nextPaint(page)
+  expect(await scrollPositions(viewport)).toEqual(originalScroll)
+  await expect(viewport).toHaveAttribute('data-scale', '1')
+})
+
+test('browser zoom shortcuts, horizontal wheel and scrolling outside the map remain available', async ({ page }) => {
+  await installFixture(page)
+  await openReport(page)
+  const viewport = page.getByTestId('map-viewport')
+  const initialScale = await viewport.getAttribute('data-scale')
+  const initialPan = { x: await viewport.getAttribute('data-pan-x'), y: await viewport.getAttribute('data-pan-y') }
+  for (const input of [{ deltaY: -80, ctrlKey: true }, { deltaY: -80, metaKey: true }, { deltaX: 80, deltaY: 0 }]) {
+    expect(await dispatchWheel(viewport, input)).toBe(false)
+  }
+  await nextPaint(page)
+  await expect(viewport).toHaveAttribute('data-scale', initialScale!)
+  await expect(viewport).toHaveAttribute('data-pan-x', initialPan.x!)
+  await expect(viewport).toHaveAttribute('data-pan-y', initialPan.y!)
+
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+  await page.mouse.move(5, 200)
+  const scrollBefore = await page.evaluate(() => window.scrollY)
+  await page.mouse.wheel(0, 400)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore)
+  await expect(viewport).toHaveAttribute('data-scale', initialScale!)
 })
 
 test('events without usable locations remain readable and selectable in the timeline', async ({ page }) => {
