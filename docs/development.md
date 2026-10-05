@@ -60,6 +60,12 @@ pnpm lint:fix      # 자동 수정 가능한 ESLint 문제 수정
 
 VS Code에서 권장 확장 프로그램인 ESLint, Prettier, Vue - Official을 설치하면 `.vscode/settings.json`에 따라 저장 시 포맷팅과 ESLint 자동 수정이 적용됩니다. 다른 편집기에서는 프로젝트에 설치된 Prettier와 위 설정 파일을 사용하세요. 첫 설치 시 `pnpm install`의 `postinstall`이 `nuxt prepare`를 실행하여 ESLint가 사용하는 Nuxt 설정을 생성합니다.
 
+### Cursor·VS Code의 TypeScript 버전
+
+에디터에서도 프로젝트에 설치된 TypeScript를 사용합니다. `.vscode/settings.json`의 `js/ts.tsdk.path`는 `node_modules/typescript/lib`를 가리키며, 작업 영역 버전 사용 알림에서 허용을 선택합니다. 알림이 없다면 명령 팔레트의 `TypeScript: Select TypeScript Version`에서 작업 영역 버전을 선택합니다. 이전 버전의 VS Code에서 새 설정 키를 인식하지 못하면 `typescript.tsdk`에 같은 경로를 지정합니다.
+
+Nuxt가 생성하는 `module: preserve`는 [TypeScript 5.4부터 지원](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-4.html)됩니다. 오래된 TypeScript Nightly 확장의 5.3 버전을 사용하면 최상위 `await`에 `ts-plugin(1378)` 오류가 표시될 수 있습니다. 프로젝트 버전 선택 후에도 이전 진단이 남으면 `TypeScript: Restart TS Server`를 실행합니다. 이 경우 생성된 `.nuxt/tsconfig*.json`이나 페이지의 `await`를 수정할 필요는 없습니다.
+
 ## 검증
 
 ### 정적 검사와 단위 테스트

@@ -1,4 +1,6 @@
 {
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
   "[javascript][javascriptreact][typescript][typescriptreact][vue][json][jsonc][css][scss][less][html][markdown][yaml]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
