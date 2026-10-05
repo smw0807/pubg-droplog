@@ -221,6 +221,123 @@ test('map pins and timeline select each other, including events sharing a coordi
   await expect(page.getByTestId('selected-actor-marker')).toBeVisible()
 })
 
+test('the selected connection follows both marker centers through zoom, pan, drag and pin changes', async ({
+  page,
+}) => {
+  await installFixture(page)
+  await openReport(page)
+  const connection = page.getByTestId('selected-event-connection')
+  const line = page.getByTestId('event-connection-line')
+  const viewport = page.getByTestId('map-viewport')
+  const expectAligned = async () => {
+    await expect(connection).toBeVisible()
+    await expect(line).toHaveCount(1)
+    await expect
+      .poll(() =>
+        line.evaluate((element: SVGLineElement) => {
+          const matrix = element.getScreenCTM()
+          const map = element.closest('[data-testid="event-map"]')
+          const actor = map?.querySelector('[data-testid="selected-actor-marker"]')
+          const target = map?.querySelector('[data-testid="selected-target-marker"]')
+          if (!matrix || !actor || !target) return Number.POSITIVE_INFINITY
+          const start = new DOMPoint(
+            element.x1.baseVal.value,
+            element.y1.baseVal.value,
+          ).matrixTransform(matrix)
+          const end = new DOMPoint(
+            element.x2.baseVal.value,
+            element.y2.baseVal.value,
+          ).matrixTransform(matrix)
+          const actorBounds = actor.getBoundingClientRect()
+          const targetBounds = target.getBoundingClientRect()
+          return Math.max(
+            Math.hypot(
+              start.x - actorBounds.left - actorBounds.width / 2,
+              start.y - actorBounds.top - actorBounds.height / 2,
+            ),
+            Math.hypot(
+              end.x - targetBounds.left - targetBounds.width / 2,
+              end.y - targetBounds.top - targetBounds.height / 2,
+            ),
+          )
+        }),
+      )
+      .toBeLessThan(1.5)
+  }
+
+  await expect(connection).toHaveCount(0)
+  await marker(page, 'knock-first').click()
+  await expectAligned()
+  expect(
+    await line.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        start: style.getPropertyValue('marker-start'),
+        end: style.getPropertyValue('marker-end'),
+      }
+    }),
+  ).toEqual({ start: 'none', end: 'none' })
+
+  await page.getByRole('button', { name: '지도 확대', exact: true }).click()
+  await expect(viewport).toHaveAttribute('data-scale', '1.5')
+  await expectAligned()
+  await viewport.focus()
+  const beforePan = await viewport.getAttribute('data-pan-x')
+  await viewport.press('ArrowRight')
+  await expect.poll(() => viewport.getAttribute('data-pan-x')).not.toBe(beforePan)
+  await expectAligned()
+
+  await viewport.scrollIntoViewIfNeeded()
+  const bounds = await viewport.boundingBox()
+  expect(bounds).not.toBeNull()
+  const beforeDrag = await viewport.getAttribute('data-pan-y')
+  await page.mouse.move(bounds!.x + bounds!.width * 0.15, bounds!.y + bounds!.height * 0.15)
+  await page.mouse.down()
+  await page.mouse.move(
+    bounds!.x + bounds!.width * 0.15 + 24,
+    bounds!.y + bounds!.height * 0.15 + 18,
+    { steps: 4 },
+  )
+  await page.mouse.up()
+  await expect.poll(() => viewport.getAttribute('data-pan-y')).not.toBe(beforeDrag)
+  await expectAligned()
+  await marker(page, 'knock-other').click()
+  await expect(eventItem(page, 'knock-other')).toHaveAttribute('aria-pressed', 'true')
+  await expectAligned()
+})
+
+test('connections are absent without two distinct valid positions or a supported map', async ({
+  page,
+}) => {
+  const valid = fixtureEvent('connection-valid', 'knock', 1, 250000, 280000)
+  const noActor = fixtureEvent('connection-no-actor', 'knock', 2, 250000, 280000)
+  noActor.actor!.location = null
+  const noTarget = fixtureEvent('connection-no-target', 'knock', 3, null, null)
+  noTarget.actor!.location = { x: 100000, y: 150000 }
+  const coincident = fixtureEvent('connection-same-position', 'knock', 4, 100000, 150000)
+  const outOfBounds = fixtureEvent('connection-outside-map', 'knock', 5, 900000, 900000)
+  await installFixture(page, { events: [valid, noActor, noTarget, coincident, outOfBounds] })
+  await openReport(page)
+  await expect(page.getByTestId('selected-event-connection')).toHaveCount(0)
+  await eventItem(page, valid.id).click()
+  await expect(page.getByTestId('event-connection-line')).toBeVisible()
+  for (const event of [noActor, noTarget, coincident, outOfBounds]) {
+    await eventItem(page, event.id).click()
+    await expect(eventItem(page, event.id)).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByTestId('selected-event-connection')).toHaveCount(0)
+    await expect(page.getByTestId('event-connection-line')).toHaveCount(0)
+  }
+
+  await page.unroute('**/api/reports/**')
+  await installFixture(page, { mapName: 'Neon_Main', events: [valid] })
+  await openReport(page)
+  await eventItem(page, valid.id).click()
+  await expect(page.getByTestId('event-map-image')).toBeVisible()
+  await expect(eventItem(page, valid.id)).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('selected-event-connection')).toHaveCount(0)
+  await expect(page.getByTestId('event-connection-line')).toHaveCount(0)
+})
+
 test('filter changes clear selection while loading another events page retains it', async ({
   page,
 }) => {

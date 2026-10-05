@@ -86,6 +86,12 @@ const selectedTarget = computed(() =>
 const selectedActor = computed(() =>
   supported.value ? projectMapLocation(props.mapName, selected.value?.actor?.location) : null,
 )
+const selectedConnection = computed(() => {
+  const from = selectedActor.value
+  const to = selectedTarget.value
+  if (!from || !to || (from.x === to.x && from.y === to.y)) return null
+  return { from, to }
+})
 const activeGroup = computed(() =>
   visibleGroups.value.find((group) => group.id === activeGroupId.value),
 )
@@ -434,6 +440,31 @@ onBeforeUnmount(() => {
           draggable="false"
           data-testid="event-map-image"
         />
+        <svg
+          v-if="selectedConnection"
+          class="event-connection"
+          aria-hidden="true"
+          focusable="false"
+          data-testid="selected-event-connection"
+        >
+          <line
+            :x1="`${selectedConnection.from.x}%`"
+            :y1="`${selectedConnection.from.y}%`"
+            :x2="`${selectedConnection.to.x}%`"
+            :y2="`${selectedConnection.to.y}%`"
+            :stroke-width="5 / scale"
+            class="event-connection__outline"
+          />
+          <line
+            :x1="`${selectedConnection.from.x}%`"
+            :y1="`${selectedConnection.from.y}%`"
+            :x2="`${selectedConnection.to.x}%`"
+            :y2="`${selectedConnection.to.y}%`"
+            :stroke-width="2 / scale"
+            class="event-connection__line"
+            data-testid="event-connection-line"
+          />
+        </svg>
         <button
           v-for="group in visibleGroups"
           :key="group.id"
@@ -753,7 +784,8 @@ onBeforeUnmount(() => {
           </div>
         </dl>
         <p class="mt-3 text-xs leading-6 text-muted">
-          사건 당시의 위치만 보여주며 이동 경로나 사격 방향을 추정하지 않아요.
+          연결선은 선택한 사건의 행위자와 대상을 잇습니다. 사건 당시의 위치만 보여주며 이동 경로나
+          사격 방향을 추정하지 않아요.
         </p>
         <UButton
           color="neutral"
@@ -805,6 +837,23 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: contain;
   user-select: none;
+}
+.event-connection {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.event-connection line {
+  stroke-linecap: round;
+}
+.event-connection__outline {
+  stroke: var(--map-ink);
+}
+.event-connection__line {
+  stroke: var(--map-accent);
 }
 .event-marker {
   position: absolute;
