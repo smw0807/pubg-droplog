@@ -7,6 +7,7 @@ const props = defineProps<{ events: ReportEvent[]; mapName: string; selectedEven
 const emit = defineEmits<{ select: [id: string]; showTimeline: [id: string] }>()
 const display = useDisplay()
 const viewport = ref<HTMLElement>()
+const maxScale = 16
 const scale = ref(1)
 const pan = reactive({ x: 0, y: 0 })
 const dragging = ref(false)
@@ -74,7 +75,7 @@ function clampPan() {
   pan.x = Math.min(limit, Math.max(-limit, pan.x))
   pan.y = Math.min(limit, Math.max(-limit, pan.y))
 }
-function zoom(step: number) { scale.value = Math.min(4, Math.max(1, Math.round((scale.value + step) * 2) / 2)); clampPan() }
+function zoom(step: number) { scale.value = Math.min(maxScale, Math.max(1, Math.round((scale.value + step) * 2) / 2)); clampPan() }
 function wheelZoom(event: WheelEvent) {
   // Keep browser zoom shortcuts and horizontal scrolling available.
   if (event.ctrlKey || event.metaKey || !Number.isFinite(event.deltaY) || event.deltaY === 0) return
@@ -84,7 +85,7 @@ function wheelZoom(event: WheelEvent) {
   if (dragging.value) return
   const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? bounds.height : 1
   const delta = Math.min(100, Math.max(-100, event.deltaY * unit))
-  const nextScale = Math.min(4, Math.max(1, scale.value * Math.exp(-delta * 0.002)))
+  const nextScale = Math.min(maxScale, Math.max(1, scale.value * Math.exp(-delta * 0.002)))
   const ratio = nextScale / scale.value
   const anchorX = (event.clientX - bounds.left) / bounds.width * 100 - 50
   const anchorY = (event.clientY - bounds.top) / bounds.height * 100 - 50
@@ -191,7 +192,7 @@ watch(() => props.mapName, () => { resetView(); pinPage.value = 0; listPage.valu
     </div>
     <div v-else class="map-unavailable"><UIcon name="i-lucide-map" class="size-10" /><p>{{ map.name }} 지도 이미지를 제공하지 않아요.</p></div>
     <div class="space-y-4 p-4 sm:p-5">
-      <div v-if="map.image" class="flex flex-wrap items-center justify-between gap-2"><div class="flex items-center gap-2"><UButton color="neutral" variant="outline" icon="i-lucide-minus" aria-label="지도 축소" class="map-control" :disabled="scale === 1" @click="zoom(-0.5)" /><span class="min-w-10 text-center text-xs tabular-nums" aria-live="polite">{{ scale.toFixed(1) }}×</span><UButton color="neutral" variant="outline" icon="i-lucide-plus" aria-label="지도 확대" class="map-control" :disabled="scale === 4" @click="zoom(0.5)" /></div><UButton color="neutral" variant="ghost" icon="i-lucide-scan" aria-label="지도 초기화" class="map-control" @click="resetView">초기화</UButton></div>
+      <div v-if="map.image" class="flex flex-wrap items-center justify-between gap-2"><div class="flex items-center gap-2"><UButton color="neutral" variant="outline" icon="i-lucide-minus" aria-label="지도 축소" class="map-control" :disabled="scale === 1" @click="zoom(-0.5)" /><span class="min-w-10 text-center text-xs tabular-nums" aria-live="polite">{{ scale.toFixed(1) }}×</span><UButton color="neutral" variant="outline" icon="i-lucide-plus" aria-label="지도 확대" class="map-control" :disabled="scale === maxScale" @click="zoom(0.5)" /></div><UButton color="neutral" variant="ghost" icon="i-lucide-scan" aria-label="지도 초기화" class="map-control" @click="resetView">초기화</UButton></div>
       <p id="event-map-instructions" class="text-xs leading-6 text-muted">지도 위에서 마우스 휠로 커서 위치를 확대·축소할 수 있어요. 확대 후 드래그하거나 지도에 초점을 두고 방향키로 이동하세요. + / −로 확대·축소, Home으로 초기화할 수 있어요. 핀은 피해자·소생 대상의 사건 당시 위치입니다.</p>
       <UAlert v-if="!supported" color="neutral" variant="soft" title="이 맵은 사건 좌표를 표시할 수 없어요" :description="map.image ? '지도 이미지는 제공하지만 좌표 기준은 아직 확인 중이에요. 모든 기록은 타임라인에서 계속 확인할 수 있어요.' : '지도 이미지와 좌표 범위가 확인된 맵만 표시합니다. 모든 기록은 타임라인에서 계속 확인할 수 있어요.'" data-testid="map-unsupported" />
       <UAlert v-else-if="events.length && !located.length" color="neutral" variant="soft" title="표시할 대상 좌표가 없어요" description="이 사건들의 대상 위치가 제공되지 않았거나 유효한 지도 범위가 아닙니다. 행위자 위치로 대신 표시하지 않아요." data-testid="map-no-locations" />
