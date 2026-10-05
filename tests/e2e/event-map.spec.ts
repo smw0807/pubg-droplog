@@ -169,6 +169,49 @@ const marker = (page: Page, id: string) =>
   page.getByTestId('event-marker').and(page.locator(`[data-event-id="${id}"]`))
 const pressed = (locator: Locator) => locator.locator('[aria-pressed="true"]')
 
+test('timeline displays event distances from stored positions, excluding revives and missing coordinates', async ({
+  page,
+}) => {
+  const knock = fixtureEvent('distance-knock', 'knock', 10, 526347.25, 437304.125)
+  knock.actor!.location = { x: 521649.625, y: 434136.28125, z: 833.7999877929688 }
+  knock.target!.location!.z = 497.1755065917969
+  const kill = fixtureEvent('distance-kill', 'kill', 20, 527021.3125, 438119.84375)
+  kill.actor!.location = { x: 521227.75, y: 433804.625, z: 700.69000244140625 }
+  kill.target!.location!.z = 398.04998779296875
+  kill.finisher = {
+    accountId: 'account.map-finisher',
+    name: 'MapFinisher',
+    memberNo: 4,
+    location: { x: 521770.15625, y: 435852.15625, z: 741.5599975585938 },
+  }
+  const revive = fixtureEvent('distance-revive', 'revive', 30, 100300, 150400)
+  revive.target!.location!.z = 0
+  const missing = fixtureEvent('distance-missing', 'knock', 40, null, null)
+  const damage = fixtureEvent('distance-damage', 'damage', 50, 100300, 150400)
+  damage.target!.location!.z = 0
+  await installFixture(page, { events: [knock, kill, revive, missing, damage] })
+  await openReport(page)
+
+  const note = page.getByText(
+    '거리는 저장된 좌표 기준 직선거리이며, 처치는 킬 획득자 기준입니다.',
+    { exact: true },
+  )
+  await expect(eventItem(page, knock.id)).toContainText('WeapM416_C · 거리 57m')
+  await expect(eventItem(page, kill.id)).toContainText('거리 72m')
+  await expect(eventItem(page, kill.id)).not.toContainText('거리 57m')
+  await expect(eventItem(page, revive.id)).not.toContainText('거리 ')
+  await expect(eventItem(page, missing.id)).not.toContainText('거리 ')
+  await expect(note).toBeVisible()
+
+  await page.getByRole('button', { name: '피해', exact: true }).click()
+  await expect(page.getByTestId('timeline-event')).toHaveCount(1)
+  await expect(eventItem(page, damage.id)).toContainText('피해 12 · WeapM416_C · 거리 5m')
+  await expect(note).toBeVisible()
+  await page.getByRole('button', { name: '소생', exact: true }).click()
+  await expect(eventItem(page, revive.id)).toBeVisible()
+  await expect(note).toHaveCount(0)
+})
+
 async function dispatchWheel(viewport: Locator, init: WheelEventInit) {
   return viewport.evaluate((element, options) => {
     const bounds = element.getBoundingClientRect()

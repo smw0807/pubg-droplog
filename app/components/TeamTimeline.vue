@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { EventRole, ReportEvent } from '~~/shared/types'
+import { getEventDistanceMeters } from '~~/shared/utils/event-distance'
 const props = defineProps<{ events: ReportEvent[]; selectedEventId?: string | null }>()
 const emit = defineEmits<{ select: [id: string]; showMap: [id: string] }>()
 const timeline = ref<HTMLElement>()
@@ -23,41 +24,47 @@ const roleName = (role: EventRole | null, event: ReportEvent): string =>
       ? '환경 피해'
       : '확인 불가'
 const items = computed(() =>
-  props.events.map((event) => ({
-    id: event.id,
-    memberNo:
-      event.target?.memberNo ??
-      event.actor?.memberNo ??
-      event.knockMaker?.memberNo ??
-      event.finisher?.memberNo,
-    icon: icons[event.kind],
-    date:
-      event.elapsedMs === null
-        ? `${display.date(event.occurredAt)} KST · 경과 시간 확인 불가`
-        : display.duration(event.elapsedMs / 1000),
-    title: `${names[event.kind]}${event.kind === 'kill' && event.target?.memberNo ? ' · 우리 팀 사망' : ''}  ${roleName(event.actor, event)} → ${roleName(event.target, event)}`,
-    description: [
-      event.damage !== null ? `피해 ${display.number(event.damage)}` : null,
-      event.weaponCode,
-      event.cause === 'friendly_fire'
-        ? '아군 공격'
-        : event.cause === 'self'
-          ? '자해'
-          : event.cause === 'environment'
-            ? '환경 피해'
-            : null,
-      event.kind === 'kill'
-        ? `기절 유발: ${event.knockMaker ? roleName(event.knockMaker, event) : '확인 불가'} · 마무리: ${event.finisher ? roleName(event.finisher, event) : '확인 불가'}`
-        : null,
-      event.assists.length
-        ? `어시스트: ${event.assists.map((role) => roleName(role, event)).join(', ')}`
-        : null,
-      ...event.warnings,
-    ]
-      .filter(Boolean)
-      .join(' · '),
-  })),
+  props.events.map((event) => {
+    const distance = getEventDistanceMeters(event)
+    return {
+      id: event.id,
+      distance,
+      memberNo:
+        event.target?.memberNo ??
+        event.actor?.memberNo ??
+        event.knockMaker?.memberNo ??
+        event.finisher?.memberNo,
+      icon: icons[event.kind],
+      date:
+        event.elapsedMs === null
+          ? `${display.date(event.occurredAt)} KST · 경과 시간 확인 불가`
+          : display.duration(event.elapsedMs / 1000),
+      title: `${names[event.kind]}${event.kind === 'kill' && event.target?.memberNo ? ' · 우리 팀 사망' : ''}  ${roleName(event.actor, event)} → ${roleName(event.target, event)}`,
+      description: [
+        event.damage !== null ? `피해 ${display.number(event.damage)}` : null,
+        event.weaponCode,
+        distance !== null ? `거리 ${display.number(distance)}m` : null,
+        event.cause === 'friendly_fire'
+          ? '아군 공격'
+          : event.cause === 'self'
+            ? '자해'
+            : event.cause === 'environment'
+              ? '환경 피해'
+              : null,
+        event.kind === 'kill'
+          ? `기절 유발: ${event.knockMaker ? roleName(event.knockMaker, event) : '확인 불가'} · 마무리: ${event.finisher ? roleName(event.finisher, event) : '확인 불가'}`
+          : null,
+        event.assists.length
+          ? `어시스트: ${event.assists.map((role) => roleName(role, event)).join(', ')}`
+          : null,
+        ...event.warnings,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    }
+  }),
 )
+const hasDistances = computed(() => items.value.some((item) => item.distance !== null))
 watch(
   () => props.selectedEventId,
   async (id) => {
@@ -79,6 +86,12 @@ watch(
     ref="timeline"
     data-testid="event-timeline"
   >
+    <p
+      v-if="hasDistances"
+      class="mb-5 text-xs leading-6 text-muted"
+    >
+      거리는 저장된 좌표 기준 직선거리이며, 처치는 킬 획득자 기준입니다.
+    </p>
     <UTimeline
       :items="items"
       color="primary"
