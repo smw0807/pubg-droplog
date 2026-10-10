@@ -27,7 +27,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'ko' },
-      title: 'PUBG DropLog · 우리 팀의 한 판',
+      title: 'PUBG DropLog · 우리 팀의 한 판을 보다',
       link: [
         { rel: 'icon', type: 'image/x-icon', sizes: '16x16 32x32 48x48', href: '/favicon.ico' },
         { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
