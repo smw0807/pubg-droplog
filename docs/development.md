@@ -136,7 +136,7 @@ NUXT_DATA_MODE=demo NUXT_DB_ENABLED=false pnpm dev --host 127.0.0.1 --port 3101
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3101 E2E_STORAGE=1 pnpm test:e2e
 ```
 
-`E2E_STORAGE=1`은 선택한 저장소의 리포트 생성·재사용 흐름도 검사합니다. PostgreSQL로 검사하려면 마이그레이션한 DB를 준비하고 서버를 `NUXT_DB_ENABLED=true`로 실행합니다. 기본 Playwright 설정은 3100 포트의 서버를 재사용하므로 데이터 모드와 저장소를 먼저 확인해야 합니다. 지도 테스트의 합성 API 응답은 실제 PUBG 연동 검증과 구분합니다.
+`E2E_STORAGE=1`은 선택한 저장소의 리포트 생성·재사용 흐름도 검사합니다. PostgreSQL로 검사하려면 마이그레이션한 DB를 준비하고 서버를 `NUXT_DB_ENABLED=true`로 실행합니다. `PLAYWRIGHT_BASE_URL`을 지정하면 Playwright는 서버를 시작하지 않고 해당 주소에 연결합니다. 생략하면 [Playwright 설정](../playwright.config.ts)에 따라 3100 포트에서 개발 서버를 시작하며, 로컬에서는 이미 실행 중인 서버가 있으면 재사용합니다. 자동으로 시작하는 서버도 실행 환경과 `.env`를 따르므로 데이터 모드와 저장소를 먼저 확인해야 합니다. 지도 테스트의 합성 API 응답은 실제 PUBG 연동 검증과 구분합니다.
 
 생산 빌드의 브라우저 검증에는 `pnpm build` 후 터미널 1에서 아래 명령을 대신 사용합니다.
 
@@ -148,11 +148,11 @@ NUXT_DATA_MODE=demo NUXT_DB_ENABLED=false PORT=3101 HOST=127.0.0.1 node --env-fi
 
 ```sh
 pnpm build
-pnpm test:smoke
+NUXT_DB_ENABLED=false pnpm test:smoke
 pnpm benchmark
 ```
 
-`test:smoke`는 기본 메모리 모드로 별도 생산 서버를 시작·종료합니다. 기본 포트는 3102이며 필요하면 `SMOKE_PORT`로 바꿉니다. 리포트 생성·재사용·재시작 시 소실·비밀 canary 검사와 실제 SDK에 모의 HTTP 전송을 붙인 네 TPP 조합을 확인합니다. 외부 PUBG 서버를 호출하지 않습니다. SDK mock 구간은 실행별 식별자를 사용하고, demo 구간은 고정 샘플 경기의 리포트를 생성·재사용합니다.
+`test:smoke`는 별도 생산 서버를 시작·종료합니다. 스크립트는 `.env`도 읽으므로 위 예시는 메모리 모드를 명시합니다. `NUXT_DB_ENABLED`를 지정하지 않으면 실행 환경·`.env`의 값을 사용하고, 둘 다 없으면 `false`입니다. 기본 포트는 3102이며 필요하면 `SMOKE_PORT`로 바꿉니다. 메모리 모드에서는 리포트 생성·재사용·재시작 시 소실·비밀 canary 검사와 실제 SDK에 모의 HTTP 전송을 붙인 네 TPP 조합을 확인합니다. 외부 PUBG 서버를 호출하지 않습니다. SDK mock 구간은 실행별 식별자를 사용하고, demo 구간은 고정 샘플 경기의 리포트를 생성·재사용합니다.
 
 마이그레이션한 DB와 연결 URL을 준비하고 `NUXT_DB_ENABLED=true pnpm test:smoke`를 실행하면 PostgreSQL 저장과 재시작·데이터 모드 변경 후 리포트 유지도 검사합니다.
 
@@ -167,8 +167,8 @@ NUXT_DB_ENABLED=true LIVE_PLATFORM=kakao LIVE_PLAYER='<실제 닉네임>' pnpm v
 NUXT_DB_ENABLED=true MAP_REPORT_ID='<기존 실제 리포트 UUID>' pnpm validate:map
 ```
 
-- `validate:live`: 첫 원본 경기 ID 20개를 확인하고 가능한 일반/랭크·듀오/스쿼드 조합에서 최대 5개 리포트를 생성·재사용합니다. 원본 ID 순서는 최신순이라고 가정하지 않습니다.
-- `validate:map`: 지정한 실제 경기 한 건의 새 분석을 생성·재사용하고 위치, 기존 리포트 보존, 두 번째 요청의 재사용을 확인합니다. 이미 현재 버전이면 저장 결과를 검증하므로 매 실행이 새 외부 분석은 아닙니다.
+- [`validate:live`](../scripts/live-check.ts): 첫 원본 경기 ID 최대 20개를 확인하고 가능한 일반/랭크·듀오/스쿼드 조합에서 최대 5개 리포트를 생성·재사용합니다. 원본 ID 순서는 최신순이라고 가정하지 않습니다. 개별 리포트 생성 실패는 출력의 `reports[].error`에 기록되며 프로세스가 성공 코드로 끝날 수 있습니다. 결과 개수, `quality`, `error`, `reused`를 함께 확인합니다.
+- [`validate:map`](../scripts/validate-event-map.ts): 지정한 실제 경기 한 건의 새 분석을 생성·재사용하고 위치, 기존 리포트 보존, 두 번째 요청의 재사용을 확인합니다. 이미 현재 버전이면 저장 결과를 검증하므로 매 실행이 새 외부 분석은 아닙니다.
 - 원본 텔레메트리는 파일에 저장하지 않습니다. 플랫폼·조합별 결과를 검증 기록에 남기고, 일부 조회에 기록이 없다는 이유로 해당 큐가 없다고 단정하지 않습니다.
 
 ## 생산 Node 서버
