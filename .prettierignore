@@ -2,6 +2,7 @@
 node_modules/
 .nuxt/
 .output/
+.vercel/
 .data/
 coverage/
 test-results/

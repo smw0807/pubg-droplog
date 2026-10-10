@@ -16,6 +16,8 @@ export default defineNuxtConfig({
   },
   nitro: {
     preset: 'node-server',
+    // Nitro 2 defaults Vercel functions to Node 22; match package.json's Node 24 requirement.
+    vercel: { functions: { runtime: 'nodejs24.x' } },
     // pubg-kit uses Zod 3 while app DTOs use Zod 4. Externalizing both as
     // `zod` flattens the majors in Nitro's output; inline each resolved copy.
     externals: { inline: ['zod'] },

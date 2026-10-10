@@ -182,6 +182,24 @@ PORT=3100 HOST=127.0.0.1 node --env-file=.env .output/server/index.mjs
 
 초기 기준은 Nitro `node-server` 단일 프로세스입니다. 앱 Zod 4와 SDK Zod 3을 각각 번들에 포함하는 이유는 [SDK 검토](sdk-review.md)에 기록했습니다. 빌드 성공과 실제 생산 API 동작은 별개로 검증합니다.
 
+## Vercel 배포
+
+저장소 루트의 [`vercel.json`](../vercel.json)은 Framework를 `nuxtjs`, Build Command를 `pnpm exec nuxt build --preset=vercel`로 지정합니다. CLI의 `--preset=vercel`이 로컬용 `nitro.preset: 'node-server'`를 덮어써 Vercel Functions와 정적 파일을 함께 생성합니다. 일반 `pnpm build`는 기존 Node 서버용 빌드를 유지합니다.
+
+Vercel Project Settings에서 Root Directory는 이 저장소 루트로 두고, Output Directory의 Override를 끕니다. `.nuxt`, `dist`, `.output/public`을 직접 지정하지 않습니다. Node.js는 `package.json`의 요구사항에 맞게 24.x를 사용합니다. [Vercel Nuxt 배포 안내](https://vercel.com/docs/frameworks/full-stack/nuxt)
+
+설치된 Nitro 2는 Vercel 함수 런타임을 기본 Node 22로 생성하므로 `nuxt.config.ts`의 `nitro.vercel.functions.runtime`을 `nodejs24.x`로 명시합니다. 빌드와 실제 함수 실행 모두 프로젝트의 Node 24 요구사항에 맞춥니다.
+
+로컬에서 Vercel용 산출물만 확인하려면 다음 명령을 실행합니다. 배포는 수행하지 않습니다.
+
+```sh
+pnpm exec nuxt build --preset=vercel
+```
+
+빌드 로그의 preset이 `vercel`이고 `.vercel/output/config.json`, `.vercel/output/functions/`, `.vercel/output/static/`이 생성되어야 합니다. `node .output/server/index.mjs` 안내와 `No Output Directory named "dist"` 오류가 함께 나오면 Node 서버용 빌드가 실행된 것이므로, 배포 대상 커밋에 `vercel.json`이 포함되었는지와 실제 Build Command를 확인합니다. 설정 변경 후에는 새로 배포해야 합니다.
+
+환경변수는 Vercel 프로젝트에 별도로 설정합니다. 실제 경기 조회에는 `NUXT_DATA_MODE=live`와 `NUXT_PUBG_API_KEY`가 필요합니다. 서버리스 인스턴스는 메모리를 공유하지 않으므로 리포트를 지속해서 제공하려면 마이그레이션한 PostgreSQL과 `NUXT_DB_ENABLED=true`, `NUXT_DATABASE_URL`을 사용합니다. 조회 커서와 호출 제한은 여전히 프로세스별 상태이며, 빌드 성공만으로 서버리스 환경의 전체 동작이 검증된 것은 아닙니다.
+
 ## 데이터와 운영 제약
 
 - 성적표는 공식 participant/roster 통계를 사용합니다. 텔레메트리 합계로 덮어쓰지 않고 누락값은 `—`, 불완전한 합계는 `확인된 합계`로 표시합니다. killer·finisher·기절 유발자·어시스트를 구분하며 첫 사망을 최종 전멸로 해석하지 않습니다.

@@ -3,7 +3,7 @@ import withNuxt from './.nuxt/eslint.config.mjs'
 
 export default withNuxt(
   {
-    ignores: ['.output/**', 'coverage/**', 'test-results/**', 'playwright-report/**'],
+    ignores: ['.output/**', '.vercel/**', 'coverage/**', 'test-results/**', 'playwright-report/**'],
   },
   {
     rules: {
