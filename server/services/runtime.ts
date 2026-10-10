@@ -1,38 +1,34 @@
 import { useRuntimeConfig } from '#imports'
 import { createPubgAdapter } from '../adapters/pubg'
-import { createPostgresRepository } from '../repositories/postgres'
+import { createRepository, getStorageMode } from '../repositories/storage'
 import type { Repository } from '../repositories/repository'
 import { ApiError } from '../utils/errors'
 import { createDemoProvider } from './provider'
 import { createReviewService } from './review'
 
-let storage: ReturnType<typeof createPostgresRepository> | undefined
+let storage: Repository | undefined
 let service: ReturnType<typeof createReviewService> | undefined
 
 export function runtimeStatus() {
   const config = useRuntimeConfig()
   if (config.dataMode !== 'demo' && config.dataMode !== 'live')
     throw new ApiError('SERVER_MISCONFIGURED', 503, '데이터 모드 설정을 확인해 주세요.')
+  const storageMode = getStorageMode(config.dbEnabled)
   return {
     mode: config.dataMode,
-    storageConfigured: Boolean(config.databaseUrl),
+    storageMode,
+    storageConfigured: storageMode === 'memory' || Boolean(config.databaseUrl),
     liveConfigured: Boolean(config.pubgApiKey),
   }
 }
 function repository(): Repository {
-  if (storage) return storage.repository
+  if (storage) return storage
   const config = useRuntimeConfig()
-  if (!config.databaseUrl)
-    throw new ApiError(
-      'SERVER_MISCONFIGURED',
-      503,
-      '리포트 저장을 위한 데이터베이스가 설정되지 않았어요. 예약 샘플은 바로 볼 수 있어요.',
-    )
-  storage = createPostgresRepository(config.databaseUrl)
-  return storage.repository
+  storage = createRepository(config)
+  return storage
 }
-// Resolve the DB only for operations that require persistence. Fixed sample GETs
-// continue to work with no key and no DB, including while live mode is configured.
+// One repository per process shares cached results across requests. Fixed sample
+// GETs do not initialize storage, including when PostgreSQL is enabled without a URL.
 const lazyRepository: Repository = {
   findPlayer: (...args) => repository().findPlayer(...args),
   getPlayerSnapshot: (...args) => repository().getPlayerSnapshot(...args),

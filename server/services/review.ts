@@ -675,7 +675,7 @@ export function createReviewService(
             preservesOfficialStats &&
             (next.quality === 'ready' ||
               (next.events.length >= old.events.length && warningsCount(next) < warningsCount(old)))
-          if (!improved) return (await repo.getReport(id))!
+          if (!improved) return readStored(id)
           return repo.improveReport(
             { ...next, generatedAt: old.generatedAt, lastRetryAt: claimedAt },
             old.revision,

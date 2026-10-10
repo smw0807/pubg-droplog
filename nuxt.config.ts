@@ -9,6 +9,7 @@ export default defineNuxtConfig({
   icon: { serverBundle: { collections: ['lucide'] } },
   runtimeConfig: {
     pubgApiKey: '',
+    dbEnabled: false,
     databaseUrl: '',
     dataMode: 'demo',
     public: { siteUrl: '' },

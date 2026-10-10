@@ -3,10 +3,13 @@ import assert from 'node:assert/strict'
 import { z } from 'zod'
 import { createPubgAdapter } from '../server/adapters/pubg'
 import { createPostgresRepository } from '../server/repositories/postgres'
+import { getStorageMode } from '../server/repositories/storage'
 import { createReviewService } from '../server/services/review'
 import { ApiError } from '../server/utils/errors'
 import { projectMapLocation } from '../shared/utils/map-coordinates'
 
+if (getStorageMode(process.env.NUXT_DB_ENABLED) !== 'postgres')
+  throw new Error('This persisted validation requires NUXT_DB_ENABLED=true.')
 const id = z.string().uuid().parse(process.env.MAP_REPORT_ID)
 const apiKey = process.env.NUXT_PUBG_API_KEY
 const databaseUrl = process.env.NUXT_DATABASE_URL

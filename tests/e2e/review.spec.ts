@@ -145,10 +145,10 @@ for (const width of [360, 768, 1440]) {
   }
 }
 
-test('search to persisted report and shared reload', async ({ page }) => {
+test('search to stored report and shared reload', async ({ page }) => {
   test.skip(
     process.env.E2E_STORAGE !== '1',
-    'Requires a migrated PostgreSQL database and E2E_STORAGE=1',
+    'Set E2E_STORAGE=1 to exercise report creation with either memory or PostgreSQL storage',
   )
   await visit(page, '/')
   await page.getByRole('textbox', { name: '플레이어 닉네임' }).fill('SquadMate')

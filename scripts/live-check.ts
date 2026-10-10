@@ -3,10 +3,13 @@ import { z } from 'zod'
 import { platformSchema, playerNameSchema } from '../shared/schemas/report'
 import { createPubgAdapter } from '../server/adapters/pubg'
 import { createPostgresRepository } from '../server/repositories/postgres'
+import { getStorageMode } from '../server/repositories/storage'
 import { createReviewService } from '../server/services/review'
 import { ApiError } from '../server/utils/errors'
 import { runWithMetrics, readMetrics } from '../server/utils/metrics'
 
+if (getStorageMode(process.env.NUXT_DB_ENABLED) !== 'postgres')
+  throw new Error('This persisted validation requires NUXT_DB_ENABLED=true.')
 const platform = platformSchema.parse(process.env.LIVE_PLATFORM)
 const name = playerNameSchema.parse(process.env.LIVE_PLAYER)
 const apiKey = process.env.NUXT_PUBG_API_KEY
